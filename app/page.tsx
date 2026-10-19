@@ -69,33 +69,19 @@ export default function HomePage() {
           },
         });
 
-        if (error) {
-          const errorText = error.message.toLowerCase();
+        
+if (error) {
+  console.error("[MEEMU signup]", {
+    message: error.message,
+    status: error.status,
+    code: error.code,
+  });
 
-          if (errorText.includes("already registered")) {
-            setMessage(
-              "Este email já possui uma conta. Experimente entrar."
-            );
-          } else if (
-            errorText.includes("password") &&
-            (errorText.includes("weak") ||
-              errorText.includes("characters"))
-          ) {
-            setMessage(
-              "A senha é muito fraca ou não cumpre os requisitos."
-            );
-          } else if (errorText.includes("rate limit")) {
-            setMessage(
-              "Foram feitas muitas tentativas. Aguarde um pouco e tente novamente."
-            );
-          } else {
-            setMessage(
-              "Não foi possível criar a conta. Verifique os dados e tente novamente."
-            );
-          }
+  setMessage(`Erro no cadastro: ${error.message}`);
 
-          return;
-        }
+  return;
+}
+
 
         if (data.session) {
           router.push("/editor");
