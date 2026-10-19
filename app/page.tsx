@@ -1,6 +1,9 @@
+
 "use client";
 
 import { useState } from "react";
+import type { FormEvent } from "react";
+import { useRouter } from "next/navigation";
 import {
   ArrowRight,
   Check,
@@ -14,20 +17,136 @@ import {
   UserRound,
   WandSparkles,
 } from "lucide-react";
+import { supabase } from "../lib/supabase";
 import "./home.css";
 
 export default function HomePage() {
+  const router = useRouter();
+
   const [mode, setMode] = useState<"login" | "signup">("signup");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [username, setUsername] = useState("");
   const [message, setMessage] = useState("");
+  const [busy, setBusy] = useState(false);
 
-  function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    setMessage(
-      "A interface está pronta. O próximo passo é conectar o cadastro e o login à autenticação."
-    );
+
+    if (busy) return;
+
+    setMessage("");
+
+    if (!supabase) {
+      setMessage(
+        "A ligação ao serviço ainda não está configurada. Verifique as variáveis do Supabase no Vercel."
+      );
+      return;
+    }
+
+    setBusy(true);
+
+    try {
+      const cleanEmail = email.trim();
+
+      if (mode === "signup") {
+        const cleanUsername = username.trim();
+
+        if (!cleanUsername) {
+          setMessage("Digite o nome que pretende usar no MEEMU.");
+          setBusy(false);
+          return;
+        }
+
+        const { data, error } = await supabase.auth.signUp({
+          email: cleanEmail,
+          password,
+          options: {
+            data: {
+              display_name: cleanUsername,
+              username: cleanUsername,
+            },
+          },
+        });
+
+        if (error) {
+          const errorText = error.message.toLowerCase();
+
+          if (errorText.includes("already registered")) {
+            setMessage(
+              "Este email já possui uma conta. Experimente entrar."
+            );
+          } else if (
+            errorText.includes("password") &&
+            (errorText.includes("weak") ||
+              errorText.includes("characters"))
+          ) {
+            setMessage(
+              "A senha é muito fraca ou não cumpre os requisitos."
+            );
+          } else if (errorText.includes("rate limit")) {
+            setMessage(
+              "Foram feitas muitas tentativas. Aguarde um pouco e tente novamente."
+            );
+          } else {
+            setMessage(
+              "Não foi possível criar a conta. Verifique os dados e tente novamente."
+            );
+          }
+
+          return;
+        }
+
+        if (data.session) {
+          router.push("/editor");
+          router.refresh();
+          return;
+        }
+
+        setMessage(
+          "Conta criada! Verifique a sua caixa de email e confirme o endereço antes de entrar."
+        );
+        return;
+      }
+
+      const { error } = await supabase.auth.signInWithPassword({
+        email: cleanEmail,
+        password,
+      });
+
+      if (error) {
+        const errorText = error.message.toLowerCase();
+
+        if (errorText.includes("email not confirmed")) {
+          setMessage(
+            "Precisa de confirmar o seu email antes de entrar. Verifique a sua caixa de entrada."
+          );
+        } else if (
+          errorText.includes("invalid login credentials")
+        ) {
+          setMessage("Email ou senha incorretos.");
+        } else if (errorText.includes("rate limit")) {
+          setMessage(
+            "Foram feitas muitas tentativas. Aguarde um pouco e tente novamente."
+          );
+        } else {
+          setMessage(
+            "Não foi possível entrar. Verifique os seus dados e tente novamente."
+          );
+        }
+
+        return;
+      }
+
+      router.push("/editor");
+      router.refresh();
+    } catch {
+      setMessage(
+        "Ocorreu um problema de ligação. Tente novamente dentro de instantes."
+      );
+    } finally {
+      setBusy(false);
+    }
   }
 
   return (
@@ -37,16 +156,24 @@ export default function HomePage() {
           <span className="home-brand-icon">
             <Sparkles size={23} />
           </span>
-          <span>mee<span className="home-brand-accent">mu</span></span>
+          <span>
+            mee<span className="home-brand-accent">mu</span>
+          </span>
         </a>
 
         <div className="home-nav-right">
-          <span className="home-nav-caption">Seu espaço, suas regras.</span>
+          <span className="home-nav-caption">
+            Seu espaço, suas regras.
+          </span>
           <button
             className="home-nav-login"
+            type="button"
             onClick={() => {
               setMode("login");
               setMessage("");
+              document
+                .getElementById("acessar")
+                ?.scrollIntoView({ behavior: "smooth" });
             }}
           >
             Entrar <ArrowRight size={16} />
@@ -75,9 +202,15 @@ export default function HomePage() {
           </p>
 
           <div className="home-benefits">
-            <div><Check size={16} /> Personalização de verdade</div>
-            <div><Check size={16} /> Seu universo em uma página</div>
-            <div><Check size={16} /> Compartilhe com quem quiser</div>
+            <div>
+              <Check size={16} /> Personalização de verdade
+            </div>
+            <div>
+              <Check size={16} /> Seu universo em uma página
+            </div>
+            <div>
+              <Check size={16} /> Compartilhe com quem quiser
+            </div>
           </div>
 
           <div className="home-social-proof">
@@ -86,7 +219,9 @@ export default function HomePage() {
               <span>♡</span>
               <span>☾</span>
             </div>
-            <span>Um espaço para ser <strong>100% você.</strong></span>
+            <span>
+              Um espaço para ser <strong>100% você.</strong>
+            </span>
           </div>
         </div>
 
@@ -139,10 +274,12 @@ export default function HomePage() {
                   </div>
                   <span className="music-play">▶</span>
                 </div>
+
                 <div className="showcase-widget quote-widget">
                   <span>✦ UM PENSAMENTO</span>
                   <p>“floresça no seu tempo.”</p>
                 </div>
+
                 <div className="showcase-widget photo-widget">
                   <ImageIcon size={19} />
                   <span>meus momentos</span>
@@ -151,7 +288,9 @@ export default function HomePage() {
               </div>
 
               <div className="showcase-footer">
-                <span><Eye size={14} /> meu cantinho na internet</span>
+                <span>
+                  <Eye size={14} /> meu cantinho na internet
+                </span>
                 <span>feito com ♡</span>
               </div>
             </div>
@@ -169,35 +308,56 @@ export default function HomePage() {
         <div className="home-section-heading">
           <span>MAIS QUE UM LINK NA BIO</span>
           <h2>Seu mundo merece mais espaço.</h2>
-          <p>Monte seu cantinho com os elementos que fazem sentido para você.</p>
+          <p>
+            Monte seu cantinho com os elementos que fazem sentido para você.
+          </p>
         </div>
 
         <div className="home-feature-grid">
           <article className="home-feature-card">
-            <span className="feature-icon purple"><Palette size={22} /></span>
+            <span className="feature-icon purple">
+              <Palette size={22} />
+            </span>
             <h3>Do seu jeito</h3>
-            <p>Personalize cores, wallpapers, imagens e a atmosfera inteira da sua página.</p>
+            <p>
+              Personalize cores, wallpapers, imagens e a atmosfera inteira
+              da sua página.
+            </p>
           </article>
 
           <article className="home-feature-card">
-            <span className="feature-icon blue"><LayoutGrid size={22} /></span>
+            <span className="feature-icon blue">
+              <LayoutGrid size={22} />
+            </span>
             <h3>Seu universo</h3>
-            <p>Organize widgets, músicas, fotos, links e conteúdos em uma composição única.</p>
+            <p>
+              Organize widgets, músicas, fotos, links e conteúdos em uma
+              composição única.
+            </p>
           </article>
 
           <article className="home-feature-card">
-            <span className="feature-icon pink"><Heart size={22} /></span>
+            <span className="feature-icon pink">
+              <Heart size={22} />
+            </span>
             <h3>Sua identidade</h3>
-            <p>Transforme sua personalidade em uma página que tenha a sua assinatura.</p>
+            <p>
+              Transforme sua personalidade em uma página que tenha a sua
+              assinatura.
+            </p>
           </article>
         </div>
       </section>
 
       <section className="home-signup-section" id="acessar">
         <div className="home-signup-copy">
-          <span className="home-eyebrow"><Sparkles size={15} /> SEU PRÓXIMO CAPÍTULO</span>
+          <span className="home-eyebrow">
+            <Sparkles size={15} /> SEU PRÓXIMO CAPÍTULO
+          </span>
           <h2>Vamos criar seu universo?</h2>
-          <p>Comece a construir um espaço que seja verdadeiramente seu.</p>
+          <p>
+            Comece a construir um espaço que seja verdadeiramente seu.
+          </p>
         </div>
 
         <div className="home-auth-card">
@@ -209,9 +369,11 @@ export default function HomePage() {
                 setMessage("");
               }}
               type="button"
+              disabled={busy}
             >
               Criar conta
             </button>
+
             <button
               className={mode === "login" ? "active" : ""}
               onClick={() => {
@@ -219,13 +381,18 @@ export default function HomePage() {
                 setMessage("");
               }}
               type="button"
+              disabled={busy}
             >
               Entrar
             </button>
           </div>
 
           <div className="auth-heading">
-            <h3>{mode === "signup" ? "Crie seu MEEMU ✨" : "Que bom ter você de volta!"}</h3>
+            <h3>
+              {mode === "signup"
+                ? "Crie seu MEEMU ✨"
+                : "Que bom ter você de volta!"}
+            </h3>
             <p>
               {mode === "signup"
                 ? "Seu espaço pessoal começa aqui."
@@ -243,7 +410,9 @@ export default function HomePage() {
                     value={username}
                     onChange={(event) => setUsername(event.target.value)}
                     placeholder="Seu nome ou apelido"
+                    autoComplete="nickname"
                     required
+                    disabled={busy}
                   />
                 </span>
               </label>
@@ -258,7 +427,9 @@ export default function HomePage() {
                   value={email}
                   onChange={(event) => setEmail(event.target.value)}
                   placeholder="voce@exemplo.com"
+                  autoComplete="email"
                   required
+                  disabled={busy}
                 />
               </span>
             </label>
@@ -273,30 +444,52 @@ export default function HomePage() {
                   onChange={(event) => setPassword(event.target.value)}
                   placeholder="Mínimo de 8 caracteres"
                   minLength={8}
+                  autoComplete={
+                    mode === "signup" ? "new-password" : "current-password"
+                  }
                   required
+                  disabled={busy}
                 />
               </span>
             </label>
 
-            <button className="auth-submit" type="submit">
-              {mode === "signup" ? "Criar meu espaço" : "Entrar no MEEMU"}
-              <ArrowRight size={17} />
+            <button
+              className="auth-submit"
+              type="submit"
+              disabled={busy}
+            >
+              {busy
+                ? "Aguarde..."
+                : mode === "signup"
+                  ? "Criar meu espaço"
+                  : "Entrar no MEEMU"}
+              {!busy && <ArrowRight size={17} />}
             </button>
 
-            {message && <p className="auth-message" role="status">{message}</p>}
+            {message && (
+              <p className="auth-message" role="status" aria-live="polite">
+                {message}
+              </p>
+            )}
           </form>
 
           <p className="auth-terms">
-            Ao continuar, você concorda em usar o MEEMU com respeito e responsabilidade.
+            Ao continuar, você concorda em usar o MEEMU com respeito e
+            responsabilidade.
           </p>
         </div>
       </section>
 
       <footer className="home-footer">
         <a className="home-brand footer-brand" href="/">
-          <span className="home-brand-icon"><Sparkles size={18} /></span>
-          <span>mee<span className="home-brand-accent">mu</span></span>
+          <span className="home-brand-icon">
+            <Sparkles size={18} />
+          </span>
+          <span>
+            mee<span className="home-brand-accent">mu</span>
+          </span>
         </a>
+
         <span>Seu espaço. Sua identidade. Seu universo.</span>
         <span>© {new Date().getFullYear()} MEEMU</span>
       </footer>
