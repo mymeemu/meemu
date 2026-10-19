@@ -2,269 +2,304 @@
 
 import { useState } from "react";
 import {
-  AudioLines,
-  Camera,
-  ChevronDown,
-  CircleHelp,
-  Disc3,
-  ExternalLink,
+  ArrowRight,
+  Check,
+  Eye,
   Heart,
-  Instagram,
+  Image as ImageIcon,
   LayoutGrid,
-  Link2,
-  Music2,
-  Plus,
-  Settings2,
+  LockKeyhole,
+  Palette,
   Sparkles,
-  Twitch,
-  Youtube
+  UserRound,
+  WandSparkles,
 } from "lucide-react";
+import "./home.css";
 
-type WallpaperMode = "left" | "full";
+export default function HomePage() {
+  const [mode, setMode] = useState<"login" | "signup">("signup");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [username, setUsername] = useState("");
+  const [message, setMessage] = useState("");
 
-export default function Home() {
-  const [wallpaperMode, setWallpaperMode] = useState<WallpaperMode>("left");
-  const [showEditor, setShowEditor] = useState(false);
-  const [wideMusic, setWideMusic] = useState(true);
-  const [showGallery, setShowGallery] = useState(true);
+  function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setMessage(
+      "A interface está pronta. O próximo passo é conectar o cadastro e o login à autenticação."
+    );
+  }
 
   return (
-    <main className={`site-shell ${wallpaperMode === "full" ? "wallpaper-full" : ""}`}>
-      <div className="ambient ambient-one" />
-      <div className="ambient ambient-two" />
-
-      <header className="topbar">
-        <a className="brand" href="#" aria-label="MEEMU início">
-          <span className="brand-mark">m</span>
-          <span>meemu<span className="brand-dot">.</span></span>
+    <main className="home-page">
+      <nav className="home-nav">
+        <a className="home-brand" href="/" aria-label="MEEMU início">
+          <span className="home-brand-icon">
+            <Sparkles size={23} />
+          </span>
+          <span>mee<span className="home-brand-accent">mu</span></span>
         </a>
 
-        <div className="topbar-center">
-          <span className="live-dot" />
-          <span>UM ESPAÇO SÓ TEU</span>
+        <div className="home-nav-right">
+          <span className="home-nav-caption">Seu espaço, suas regras.</span>
+          <button
+            className="home-nav-login"
+            onClick={() => {
+              setMode("login");
+              setMessage("");
+            }}
+          >
+            Entrar <ArrowRight size={16} />
+          </button>
+        </div>
+      </nav>
+
+      <section className="home-hero">
+        <div className="home-copy">
+          <div className="home-eyebrow">
+            <Sparkles size={15} />
+            SUA IDENTIDADE DIGITAL, DO SEU JEITO
+          </div>
+
+          <h1>
+            A internet tem
+            <br />
+            seu espaço.
+            <br />
+            <span>Deixe sua marca.</span>
+          </h1>
+
+          <p className="home-description">
+            Crie uma página que tenha a sua cara. Misture fotos, música,
+            widgets, frases e tudo aquilo que faz você ser você.
+          </p>
+
+          <div className="home-benefits">
+            <div><Check size={16} /> Personalização de verdade</div>
+            <div><Check size={16} /> Seu universo em uma página</div>
+            <div><Check size={16} /> Compartilhe com quem quiser</div>
+          </div>
+
+          <div className="home-social-proof">
+            <div className="home-avatar-stack">
+              <span>✦</span>
+              <span>♡</span>
+              <span>☾</span>
+            </div>
+            <span>Um espaço para ser <strong>100% você.</strong></span>
+          </div>
         </div>
 
-        <button className="top-action" onClick={() => setShowEditor(!showEditor)}>
-          <Settings2 size={16} />
-          <span>{showEditor ? "Fechar editor" : "Personalizar"}</span>
-        </button>
-      </header>
+        <div className="home-showcase">
+          <div className="showcase-orbit orbit-one" />
+          <div className="showcase-orbit orbit-two" />
 
-      <section className="workspace">
-        <aside className="identity-panel">
-          <div className="wallpaper-art" aria-hidden="true">
-            <div className="art-grain" />
-            <div className="art-vertical">静 · 孤独 · 強さ</div>
-            <div className="art-number">01</div>
-            <div className="art-orbit" />
-
-            <div className="art-silhouette">
-              <div className="silhouette-head" />
-              <div className="silhouette-body" />
-            </div>
-
-            <div className="art-caption">STAY<br />UNCOMMON.</div>
-            <div className="art-bottom-line" />
+          <div className="showcase-floating float-top">
+            <Palette size={18} />
+            <span>Seu estilo</span>
+            <span className="float-dots">•••</span>
           </div>
 
-          <div className="identity-overlay">
-            <div className="eyebrow">
-              <span />
-              PERFIL PESSOAL
-              <span className="eyebrow-line" />
+          <div className="showcase-profile">
+            <div className="showcase-cover">
+              <span className="cover-star star-one">✦</span>
+              <span className="cover-star star-two">✧</span>
+              <span className="cover-label">MY LITTLE UNIVERSE</span>
             </div>
 
-            <div className="identity-copy">
-              <div className="handle">@teuusername</div>
-              <h1>O teu mundo.<br /><em>As tuas regras.</em></h1>
-              <p>“Nem tudo o que é real precisa de ser explicado.”</p>
-            </div>
+            <div className="showcase-avatar">☁️</div>
 
-            <div className="identity-footer">
-              <span><span className="tiny-dot" /> DISPONÍVEL NO MEU MUNDO</span>
-              <span>MMXXVI</span>
+            <div className="showcase-profile-body">
+              <div className="showcase-name-row">
+                <div>
+                  <h3>luna.exe</h3>
+                  <span className="showcase-handle">@luna</span>
+                </div>
+                <span className="showcase-online">
+                  <span /> online
+                </span>
+              </div>
+
+              <p className="showcase-bio">
+                vivendo entre pixels, música e sonhos ♡
+              </p>
+
+              <div className="showcase-tags">
+                <span>✧ dreamy</span>
+                <span>🎧 music lover</span>
+                <span>☁️ daydreamer</span>
+              </div>
+
+              <div className="showcase-widget-grid">
+                <div className="showcase-widget music-widget">
+                  <div className="music-icon">♫</div>
+                  <div>
+                    <strong>my playlist</strong>
+                    <span>minha vibe de hoje</span>
+                  </div>
+                  <span className="music-play">▶</span>
+                </div>
+                <div className="showcase-widget quote-widget">
+                  <span>✦ UM PENSAMENTO</span>
+                  <p>“floresça no seu tempo.”</p>
+                </div>
+                <div className="showcase-widget photo-widget">
+                  <ImageIcon size={19} />
+                  <span>meus momentos</span>
+                  <Heart size={16} />
+                </div>
+              </div>
+
+              <div className="showcase-footer">
+                <span><Eye size={14} /> meu cantinho na internet</span>
+                <span>feito com ♡</span>
+              </div>
             </div>
           </div>
-        </aside>
 
-        <section className="widgets-area" aria-label="Widgets do perfil">
-          <div className="profile-heading">
-            <div>
-              <div className="section-kicker">O MEU ESPAÇO <span>✳</span></div>
-              <h2>Hey, visitante<span>.</span></h2>
-              <p>Um pequeno universo, em constante mudança.</p>
-            </div>
+          <div className="showcase-floating float-bottom">
+            <WandSparkles size={18} />
+            <span>Feito por você</span>
+            <span className="float-sparkle">✦</span>
+          </div>
+        </div>
+      </section>
 
-            <button className="icon-button" aria-label="Ajuda">
-              <CircleHelp size={17} />
+      <section className="home-features">
+        <div className="home-section-heading">
+          <span>MAIS QUE UM LINK NA BIO</span>
+          <h2>Seu mundo merece mais espaço.</h2>
+          <p>Monte seu cantinho com os elementos que fazem sentido para você.</p>
+        </div>
+
+        <div className="home-feature-grid">
+          <article className="home-feature-card">
+            <span className="feature-icon purple"><Palette size={22} /></span>
+            <h3>Do seu jeito</h3>
+            <p>Personalize cores, wallpapers, imagens e a atmosfera inteira da sua página.</p>
+          </article>
+
+          <article className="home-feature-card">
+            <span className="feature-icon blue"><LayoutGrid size={22} /></span>
+            <h3>Seu universo</h3>
+            <p>Organize widgets, músicas, fotos, links e conteúdos em uma composição única.</p>
+          </article>
+
+          <article className="home-feature-card">
+            <span className="feature-icon pink"><Heart size={22} /></span>
+            <h3>Sua identidade</h3>
+            <p>Transforme sua personalidade em uma página que tenha a sua assinatura.</p>
+          </article>
+        </div>
+      </section>
+
+      <section className="home-signup-section" id="acessar">
+        <div className="home-signup-copy">
+          <span className="home-eyebrow"><Sparkles size={15} /> SEU PRÓXIMO CAPÍTULO</span>
+          <h2>Vamos criar seu universo?</h2>
+          <p>Comece a construir um espaço que seja verdadeiramente seu.</p>
+        </div>
+
+        <div className="home-auth-card">
+          <div className="auth-tabs">
+            <button
+              className={mode === "signup" ? "active" : ""}
+              onClick={() => {
+                setMode("signup");
+                setMessage("");
+              }}
+              type="button"
+            >
+              Criar conta
+            </button>
+            <button
+              className={mode === "login" ? "active" : ""}
+              onClick={() => {
+                setMode("login");
+                setMessage("");
+              }}
+              type="button"
+            >
+              Entrar
             </button>
           </div>
 
-          {showEditor && (
-            <div className="editor-panel">
-              <div className="editor-title">
-                <Sparkles size={16} /> Personalizar visual
-              </div>
+          <div className="auth-heading">
+            <h3>{mode === "signup" ? "Crie seu MEEMU ✨" : "Que bom ter você de volta!"}</h3>
+            <p>
+              {mode === "signup"
+                ? "Seu espaço pessoal começa aqui."
+                : "Entre para continuar de onde parou."}
+            </p>
+          </div>
 
-              <div className="editor-row">
-                <span>Wallpaper</span>
-                <div className="segmented">
-                  <button
-                    className={wallpaperMode === "left" ? "selected" : ""}
-                    onClick={() => setWallpaperMode("left")}
-                  >
-                    Coluna esquerda
-                  </button>
-                  <button
-                    className={wallpaperMode === "full" ? "selected" : ""}
-                    onClick={() => setWallpaperMode("full")}
-                  >
-                    Ecrã completo
-                  </button>
-                </div>
-              </div>
-
-              <div className="editor-row">
-                <span>Widget de música</span>
-                <button className="mini-toggle" onClick={() => setWideMusic(!wideMusic)}>
-                  {wideMusic ? "Largo" : "Compacto"} <ChevronDown size={13} />
-                </button>
-              </div>
-
-              <div className="editor-row">
-                <span>Galeria de fotos</span>
-                <button
-                  className={`switch ${showGallery ? "on" : ""}`}
-                  onClick={() => setShowGallery(!showGallery)}
-                  aria-label="Alternar galeria"
-                >
-                  <span />
-                </button>
-              </div>
-
-              <p className="editor-note">
-                Pré-visualização inicial. A gravação dos perfis será integrada
-                com o Supabase numa próxima fase.
-              </p>
-            </div>
-          )}
-
-          <div className="widget-grid">
-            <article className="widget profile-widget">
-              <div className="widget-top">
-                <span className="widget-label">IDENTIDADE</span>
-                <span className="widget-index">01 / 04</span>
-              </div>
-
-              <div className="avatar-wrap">
-                <div className="avatar-placeholder"><span>m.</span></div>
-                <span className="avatar-status" />
-              </div>
-
-              <h3>teu nome</h3>
-              <p className="muted">@teuusername</p>
-              <p className="bio">
-                Coleciono momentos, mundos fictícios e boas histórias.
-              </p>
-
-              <div className="profile-tags">
-                <span>✳ dreamer</span>
-                <span>✦ online</span>
-              </div>
-            </article>
-
-            <article className={`widget music-widget ${wideMusic ? "music-wide" : ""}`}>
-              <div className="widget-top">
-                <span className="widget-label"><AudioLines size={13} /> A TOCAR AGORA</span>
-                <span className="music-pulse"><i /><i /><i /></span>
-              </div>
-
-              <div className="music-content">
-                <div className="album-art">
-                  <Disc3 size={31} strokeWidth={1.1} />
-                  <span>MEEMU<br />RADIO</span>
-                </div>
-
-                <div className="track-info">
-                  <h3>After Dark</h3>
-                  <p>Mr.Kitty · Time</p>
-                  <div className="track-progress"><span /></div>
-                  <div className="track-time">
-                    <span>1:24</span>
-                    <span>4:17</span>
-                  </div>
-                </div>
-              </div>
-
-              <div className="music-controls">
-                <span><Music2 size={15} /> SPOTIFY EMBED / PREVIEW</span>
-                <button aria-label="Abrir música"><ExternalLink size={14} /></button>
-              </div>
-            </article>
-
-            <article className="widget socials-widget">
-              <div className="widget-top">
-                <span className="widget-label">ENCONTRA-ME</span>
-                <Link2 size={14} />
-              </div>
-
-              <div className="social-grid">
-                <a href="#instagram" aria-label="Instagram">
-                  <Instagram size={19} /><span>Instagram</span>
-                </a>
-                <a href="#youtube" aria-label="YouTube">
-                  <Youtube size={19} /><span>YouTube</span>
-                </a>
-                <a href="#twitch" aria-label="Twitch">
-                  <Twitch size={19} /><span>Twitch</span>
-                </a>
-                <a href="#mais" aria-label="Adicionar rede">
-                  <Plus size={19} /><span>Adicionar</span>
-                </a>
-              </div>
-            </article>
-
-            {showGallery && (
-              <article className="widget gallery-widget">
-                <div className="widget-top">
-                  <span className="widget-label"><Camera size={13} /> FRAGMENTOS</span>
-                  <span className="widget-index">GALERIA</span>
-                </div>
-
-                <div className="photo-grid">
-                  <div className="photo-placeholder photo-one"><span>FRAME 01</span></div>
-                  <div className="photo-placeholder photo-two"><span>FRAME 02</span></div>
-                  <div className="photo-placeholder photo-three"><span>FRAME 03</span></div>
-                </div>
-
-                <div className="gallery-footer">
-                  <span>Pequenos pedaços de mim</span>
-                  <Heart size={14} />
-                </div>
-              </article>
+          <form className="home-auth-form" onSubmit={handleSubmit}>
+            {mode === "signup" && (
+              <label>
+                Como quer ser chamado?
+                <span className="auth-input-wrap">
+                  <UserRound size={17} />
+                  <input
+                    value={username}
+                    onChange={(event) => setUsername(event.target.value)}
+                    placeholder="Seu nome ou apelido"
+                    required
+                  />
+                </span>
+              </label>
             )}
 
-            <article className="widget quote-widget">
-              <div className="quote-mark">“</div>
-              <p>Become who you are.</p>
-              <span>— FRIEDRICH NIETZSCHE</span>
-              <div className="quote-decoration">言葉</div>
-            </article>
+            <label>
+              E-mail
+              <span className="auth-input-wrap">
+                <span className="at-symbol">@</span>
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(event) => setEmail(event.target.value)}
+                  placeholder="voce@exemplo.com"
+                  required
+                />
+              </span>
+            </label>
 
-            <button className="add-widget" onClick={() => setShowEditor(true)}>
-              <span className="add-icon"><Plus size={18} /></span>
-              <strong>O teu próximo widget</strong>
-              <span>Adiciona música, fotos, links ou algo que te represente.</span>
-              <span className="add-link">EXPLORAR WIDGETS <span>↗</span></span>
+            <label>
+              Senha
+              <span className="auth-input-wrap">
+                <LockKeyhole size={17} />
+                <input
+                  type="password"
+                  value={password}
+                  onChange={(event) => setPassword(event.target.value)}
+                  placeholder="Mínimo de 8 caracteres"
+                  minLength={8}
+                  required
+                />
+              </span>
+            </label>
+
+            <button className="auth-submit" type="submit">
+              {mode === "signup" ? "Criar meu espaço" : "Entrar no MEEMU"}
+              <ArrowRight size={17} />
             </button>
-          </div>
 
-          <footer className="workspace-footer">
-            <span><LayoutGrid size={13} /> FEITO À TUA MANEIRA</span>
-            <span>MEEMU © 2026 <span className="footer-star">✳</span></span>
-          </footer>
-        </section>
+            {message && <p className="auth-message" role="status">{message}</p>}
+          </form>
+
+          <p className="auth-terms">
+            Ao continuar, você concorda em usar o MEEMU com respeito e responsabilidade.
+          </p>
+        </div>
       </section>
+
+      <footer className="home-footer">
+        <a className="home-brand footer-brand" href="/">
+          <span className="home-brand-icon"><Sparkles size={18} /></span>
+          <span>mee<span className="home-brand-accent">mu</span></span>
+        </a>
+        <span>Seu espaço. Sua identidade. Seu universo.</span>
+        <span>© {new Date().getFullYear()} MEEMU</span>
+      </footer>
     </main>
   );
 }
