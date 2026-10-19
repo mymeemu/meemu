@@ -1,6 +1,8 @@
 
 "use client";
+
 import "./editor.css";
+
 import { useState } from "react";
 import {
   ArrowLeft,
