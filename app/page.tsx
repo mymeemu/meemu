@@ -115,28 +115,18 @@ export default function HomePage() {
       });
 
       if (error) {
-        const errorText = error.message.toLowerCase();
+  console.error("[MEEMU signup]", {
+    message: error.message,
+    status: error.status,
+    code: error.code,
+  });
 
-        if (errorText.includes("email not confirmed")) {
-          setMessage(
-            "Precisa de confirmar o seu email antes de entrar. Verifique a sua caixa de entrada."
-          );
-        } else if (
-          errorText.includes("invalid login credentials")
-        ) {
-          setMessage("Email ou senha incorretos.");
-        } else if (errorText.includes("rate limit")) {
-          setMessage(
-            "Foram feitas muitas tentativas. Aguarde um pouco e tente novamente."
-          );
-        } else {
-          setMessage(
-            "Não foi possível entrar. Verifique os seus dados e tente novamente."
-          );
-        }
+  setMessage(
+    `Erro no cadastro: ${error.message}`
+  );
 
-        return;
-      }
+  return;
+}
 
       router.push("/editor");
       router.refresh();
