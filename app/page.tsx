@@ -170,60 +170,6 @@ export default function HomePage() {
       setBusy(false);
     }
   }
-
-  async function handlePasswordReset() {
-    if (busy) return;
-
-    setMessage("");
-
-    if (!supabase) {
-      setMessage(
-        "A ligação ao serviço não está configurada. Tente novamente mais tarde."
-      );
-      return;
-    }
-
-    const cleanEmail = email.trim();
-
-    if (!cleanEmail) {
-      setMessage("Digite o seu email no campo acima antes de recuperar a senha.");
-      return;
-    }
-
-    setBusy(true);
-
-    try {
-      const { error } = await supabase.auth.resetPasswordForEmail(
-        cleanEmail,
-        {
-          redirectTo: `${window.location.origin}/reset-password`,
-        }
-      );
-
-      if (error) {
-        console.error("[MEEMU password reset]", error.message);
-
-        setMessage(
-          "Não foi possível enviar o email de recuperação. Tente novamente."
-        );
-        return;
-      }
-
-      setMessage(
-        "Se existir uma conta com esse email, enviaremos um link para redefinir a senha. Verifique também a pasta de spam."
-      );
-    } catch (error) {
-      console.error("[MEEMU password reset]", error);
-
-      setMessage(
-        "Ocorreu um problema de ligação. Tente novamente dentro de instantes."
-      );
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  return (
     <main className="home-page">
       <nav className="home-nav">
         <a className="home-brand" href="/" aria-label="MEEMU início">
