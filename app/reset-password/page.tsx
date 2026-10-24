@@ -1,64 +1,69 @@
 "use client";
 
+import Link from "next/link";
+
 import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
-import { useRouter } from "next/navigation";
 import { ArrowRight, LockKeyhole, Sparkles } from "lucide-react";
-import { supabase } from "../../lib/supabase";
+import { finishPasswordRecovery, isPasswordRecoverySession, supabase } from "../../lib/supabase";
 import "../home.css";
 
 export default function ResetPasswordPage() {
-  const router = useRouter();
-
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  const [message, setMessage] = useState("");
+  const [message, setMessage] = useState(
+    supabase ? "" : "O serviço está indisponível. Tente novamente mais tarde."
+  );
   const [ready, setReady] = useState(false);
   const [busy, setBusy] = useState(false);
   const [success, setSuccess] = useState(false);
 
   useEffect(() => {
-    if (!supabase) {
-      setMessage(
-        "O serviço está indisponível. Tente novamente mais tarde."
-      );
-      return;
-    }
+    if (success || !supabase) return;
 
     let active = true;
+    const url = new URL(window.location.href);
+    const hash = new URLSearchParams(url.hash.slice(1));
+    const invalidLink = [url.searchParams, hash].some((params) =>
+      ["error", "error_code", "error_description"].some((key) => params.has(key))
+    );
+
+    function validateSession(session: Parameters<typeof isPasswordRecoverySession>[0]) {
+      if (!active) return;
+      const valid = !invalidLink && isPasswordRecoverySession(session);
+      setReady(valid);
+      setMessage(valid ? "" : "Este link é inválido ou expirou. Volte à página inicial e solicite uma nova recuperação de senha.");
+    }
 
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (active && session) {
-        setReady(true);
-      }
+      validateSession(session);
     });
 
     supabase.auth.getSession().then(({ data, error }) => {
       if (!active) return;
 
       if (error) {
+        setReady(false);
         setMessage(
           "Não foi possível validar o link. Solicite um novo email de recuperação."
         );
         return;
       }
 
-      if (data.session) {
-        setReady(true);
-      } else {
-        setMessage(
-          "Este link é inválido ou expirou. Volte à página inicial e solicite uma nova recuperação de senha."
-        );
-      }
+      validateSession(data.session);
+    }).catch(() => {
+      if (!active) return;
+      setReady(false);
+      setMessage("Não foi possível validar o link. Solicite um novo email de recuperação.");
     });
 
     return () => {
       active = false;
       subscription.unsubscribe();
     };
-  }, []);
+  }, [success]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -92,6 +97,13 @@ export default function ResetPasswordPage() {
     setBusy(true);
 
     try {
+      const { data, error: sessionError } = await supabase.auth.getSession();
+      if (sessionError || !isPasswordRecoverySession(data.session)) {
+        setReady(false);
+        setMessage("O link de recuperação não está válido. Solicite um novo email.");
+        return;
+      }
+
       const { error } = await supabase.auth.updateUser({
         password,
       });
@@ -105,6 +117,7 @@ export default function ResetPasswordPage() {
         return;
       }
 
+      finishPasswordRecovery();
       setSuccess(true);
       setMessage(
         "Senha alterada com sucesso! Já pode voltar ao MEEMU."
@@ -123,7 +136,7 @@ export default function ResetPasswordPage() {
   return (
     <main className="home-page">
       <nav className="home-nav">
-        <a className="home-brand" href="/" aria-label="MEEMU início">
+        <Link className="home-brand" href="/" aria-label="MEEMU início">
           <span className="home-brand-icon">
             <Sparkles size={23} />
           </span>
@@ -131,7 +144,7 @@ export default function ResetPasswordPage() {
           <span>
             mee<span className="home-brand-accent">mu</span>
           </span>
-        </a>
+        </Link>
       </nav>
 
       <section className="home-signup-section">
@@ -229,7 +242,7 @@ export default function ResetPasswordPage() {
             </p>
           )}
 
-          <a
+          <Link
             href="/"
             style={{
               display: "block",
@@ -242,7 +255,7 @@ export default function ResetPasswordPage() {
             }}
           >
             Voltar ao MEEMU
-          </a>
+          </Link>
         </div>
       </section>
 

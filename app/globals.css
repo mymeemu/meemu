@@ -838,7 +838,7 @@ textarea:focus-visible {
 
 /* MÚSICA */
 
-.music-widget {
+.site-shell .music-widget {
   display: flex;
   flex-direction: column;
   background:
@@ -850,7 +850,7 @@ textarea:focus-visible {
     #fff;
 }
 
-.music-widget .widget-top {
+.site-shell .music-widget .widget-top {
   margin-bottom: 16px;
 }
 
@@ -1154,7 +1154,7 @@ textarea:focus-visible {
 
 /* CITAÇÃO */
 
-.quote-widget {
+.site-shell .quote-widget {
   display: flex;
   flex-direction: column;
   justify-content: center;
@@ -1176,7 +1176,7 @@ textarea:focus-visible {
   line-height: 1;
 }
 
-.quote-widget > p {
+.site-shell .quote-widget > p {
   position: relative;
   z-index: 1;
   margin-top: 8px;
@@ -1186,7 +1186,7 @@ textarea:focus-visible {
   letter-spacing: -0.6px;
 }
 
-.quote-widget > span {
+.site-shell .quote-widget > span {
   margin-top: 12px;
   color: #8c84be;
   font-size: 8px;
@@ -1606,12 +1606,12 @@ textarea:focus-visible {
     font-size: 8px;
   }
 
-  .quote-widget,
+  .site-shell .quote-widget,
   .add-widget {
     min-height: 175px;
   }
 
-  .quote-widget > p {
+  .site-shell .quote-widget > p {
     font-size: 17px;
   }
 

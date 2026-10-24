@@ -1,6 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import Link from "next/link";
+
+import { useEffect, useRef, useState } from "react";
 import type { FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import {
@@ -16,7 +18,7 @@ import {
   UserRound,
   WandSparkles,
 } from "lucide-react";
-import { supabase } from "../lib/supabase";
+import { isPasswordRecoverySession, supabase } from "../lib/supabase";
 import "./home.css";
 
 export default function HomePage() {
@@ -28,7 +30,34 @@ export default function HomePage() {
   const [username, setUsername] = useState("");
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
-  
+  const emailInput = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (!supabase) return;
+    let active = true;
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+      if (!active) return;
+      if (event === "PASSWORD_RECOVERY") router.replace("/reset-password");
+      if (event === "SIGNED_IN") router.replace("/editor");
+    });
+    void supabase.auth.getSession().then(({ data, error }) => {
+      if (!active) return;
+      if (error) {
+        setMessage("Não foi possível validar a sessão. Tente entrar novamente.");
+      } else if (data.session) {
+        router.replace(isPasswordRecoverySession(data.session) ? "/reset-password" : "/editor");
+      } else if (new URLSearchParams(window.location.hash.slice(1)).has("error")) {
+        setMessage("Este link é inválido ou expirou. Solicite um novo email e tente novamente.");
+      }
+    }).catch(() => {
+      if (active) setMessage("Não foi possível validar a sessão. Tente novamente.");
+    });
+    return () => {
+      active = false;
+      subscription.unsubscribe();
+    };
+  }, [router]);
+
   async function handlePasswordReset() {
     if (busy) return;
 
@@ -44,6 +73,8 @@ export default function HomePage() {
       return;
     }
 
+    if (!emailInput.current?.reportValidity()) return;
+
     setBusy(true);
     setMessage("");
 
@@ -56,7 +87,7 @@ export default function HomePage() {
       );
 
       if (error) {
-        setMessage(error.message);
+        setMessage("Não foi possível enviar o email de recuperação. Tente novamente mais tarde.");
       } else {
         setMessage(
           "Se esse e-mail estiver cadastrado, você receberá um link para redefinir sua senha."
@@ -77,7 +108,7 @@ export default function HomePage() {
 
     if (!supabase) {
       setMessage(
-        "A ligação ao serviço ainda não está configurada. Verifique as variáveis do Supabase no Vercel."
+        "O serviço está indisponível. Tente novamente mais tarde."
       );
       return;
     }
@@ -99,6 +130,7 @@ export default function HomePage() {
           email: cleanEmail,
           password,
           options: {
+            emailRedirectTo: `${window.location.origin}/editor`,
             data: {
               display_name: cleanUsername,
               username: cleanUsername,
@@ -143,11 +175,11 @@ export default function HomePage() {
 
         const errorText = error.message.toLowerCase();
 
-        if (errorText.includes("email not confirmed")) {
+        if (error.code === "email_not_confirmed" || errorText.includes("email not confirmed")) {
           setMessage(
             "Confirme o seu email antes de entrar. Verifique a sua caixa de entrada."
           );
-        } else if (errorText.includes("invalid login credentials")) {
+        } else if (error.code === "invalid_credentials" || errorText.includes("invalid login credentials")) {
           setMessage(
             "Email ou senha incorretos. Verifique os dados ou recupere a sua senha."
           );
@@ -170,16 +202,18 @@ export default function HomePage() {
       setBusy(false);
     }
   }
+
+  return (
     <main className="home-page">
       <nav className="home-nav">
-        <a className="home-brand" href="/" aria-label="MEEMU início">
+        <Link className="home-brand" href="/" aria-label="MEEMU início">
           <span className="home-brand-icon">
             <Sparkles size={23} />
           </span>
           <span>
             mee<span className="home-brand-accent">mu</span>
           </span>
-        </a>
+        </Link>
 
         <div className="home-nav-right">
           <span className="home-nav-caption">
@@ -188,6 +222,7 @@ export default function HomePage() {
           <button
             className="home-nav-login"
             type="button"
+            disabled={busy}
             onClick={() => {
               setMode("login");
               setMessage("");
@@ -441,8 +476,9 @@ export default function HomePage() {
             <label>
               E-mail
               <span className="auth-input-wrap">
-                <span className="at-symbol">@</span>
+                <span className="at-symbol" aria-hidden="true">@</span>
                 <input
+                  ref={emailInput}
                   type="email"
                   value={email}
                   onChange={(event) => setEmail(event.target.value)}
@@ -463,7 +499,7 @@ export default function HomePage() {
                   value={password}
                   onChange={(event) => setPassword(event.target.value)}
                   placeholder="Mínimo de 8 caracteres"
-                  minLength={8}
+                  minLength={mode === "signup" ? 8 : undefined}
                   autoComplete={
                     mode === "signup" ? "new-password" : "current-password"
                   }
@@ -473,26 +509,26 @@ export default function HomePage() {
               </span>
             </label>
 
-              <button
-  type="button"
-  onClick={handlePasswordReset}
-  disabled={busy}
-  style={{
-    display: "block",
-    width: "100%",
-    margin: "4px 0 12px",
-    padding: "8px 0",
-    border: "none",
-    background: "transparent",
-    color: "#7c6ee6",
-    fontSize: "13px",
-    fontWeight: 600,
-    textAlign: "right",
-    cursor: busy ? "wait" : "pointer",
-  }}
->
-  {busy ? "Aguarde..." : "Esqueci minha senha"}
-</button>
+            <button
+              type="button"
+              onClick={handlePasswordReset}
+              disabled={busy}
+              style={{
+                display: "block",
+                width: "100%",
+                margin: "4px 0 12px",
+                padding: "8px 0",
+                border: "none",
+                background: "transparent",
+                color: "#7c6ee6",
+                fontSize: "13px",
+                fontWeight: 600,
+                textAlign: "right",
+                cursor: busy ? "wait" : "pointer",
+              }}
+            >
+              {busy ? "Aguarde..." : "Esqueci minha senha"}
+            </button>
 
             <button
               className="auth-submit"
@@ -522,14 +558,14 @@ export default function HomePage() {
       </section>
 
       <footer className="home-footer">
-        <a className="home-brand footer-brand" href="/">
+        <Link className="home-brand footer-brand" href="/">
           <span className="home-brand-icon">
             <Sparkles size={18} />
           </span>
           <span>
             mee<span className="home-brand-accent">mu</span>
           </span>
-        </a>
+        </Link>
 
         <span>Seu espaço. Sua identidade. Seu universo.</span>
         <span>© {new Date().getFullYear()} MEEMU</span>

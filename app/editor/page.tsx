@@ -3,7 +3,12 @@
 
 import "./editor.css";
 
-import { useState } from "react";
+import Link from "next/link";
+
+import { useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
+import { isPasswordRecoverySession, supabase } from "../../lib/supabase";
+import { initialWidgets, parseProfileDraft, profileLinkUrl, type ProfileDraft, type ProfileLink } from "../../lib/profile";
 import {
   ArrowLeft,
   Check,
@@ -25,26 +30,13 @@ import {
 
 type Section = "perfil" | "aparencia" | "wallpaper" | "widgets" | "links";
 
-type ProfileLink = {
-  id: number;
-  title: string;
-  url: string;
-};
-
-type WidgetItem = {
-  id: string;
-  name: string;
-  enabled: boolean;
-};
-
-const initialWidgets: WidgetItem[] = [
-  { id: "music", name: "Música", enabled: true },
-  { id: "socials", name: "Redes sociais", enabled: true },
-  { id: "gallery", name: "Galeria de fotos", enabled: true },
-  { id: "quote", name: "Citação", enabled: true },
-];
-
 export default function EditorPage() {
+  const router = useRouter();
+  const [userId, setUserId] = useState<string | null>(null);
+  const restoredUserId = useRef<string | null>(null);
+  const [status, setStatus] = useState("");
+  const [signingOut, setSigningOut] = useState(false);
+  const [legacyDraft, setLegacyDraft] = useState<ProfileDraft | null>(null);
   const [section, setSection] = useState<Section>("perfil");
   const [name, setName] = useState("Teu nome");
   const [username, setUsername] = useState("teuusername");
@@ -62,6 +54,89 @@ export default function EditorPage() {
     { id: 2, title: "O meu site", url: "https://" },
   ]);
   const [saved, setSaved] = useState(false);
+
+  useEffect(() => {
+    if (!supabase) {
+      router.replace("/#acessar");
+      return;
+    }
+    let active = true;
+
+    function restoreSession(session: Parameters<typeof isPasswordRecoverySession>[0], recoveryEvent = false) {
+      if (!active) return;
+      if (!session || recoveryEvent || isPasswordRecoverySession(session)) {
+        restoredUserId.current = null;
+        setUserId(null);
+        router.replace(session ? "/reset-password" : "/#acessar");
+        return;
+      }
+
+      // Restore on account changes, never on token refreshes or repeated events.
+      if (restoredUserId.current !== session.user.id) {
+        restoredUserId.current = session.user.id;
+        resetProfile();
+        setLegacyDraft(null);
+        try {
+          const raw = localStorage.getItem(`meemu-profile-draft:${session.user.id}`);
+          if (raw) {
+            const draft = parseProfileDraft(raw);
+            if (draft) {
+              loadDraft(draft);
+              setSaved(true);
+            } else {
+              setStatus("Não foi possível abrir o rascunho guardado neste navegador.");
+            }
+          } else {
+            const legacy = localStorage.getItem("meemu-profile-draft");
+            if (legacy) setLegacyDraft(parseProfileDraft(legacy));
+          }
+        } catch {
+          setStatus("O armazenamento deste navegador está indisponível.");
+        }
+      }
+      setUserId(session.user.id);
+    }
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      restoreSession(event === "SIGNED_OUT" ? null : session, event === "PASSWORD_RECOVERY");
+    });
+    void supabase.auth.getSession().then(({ data, error }) => {
+      restoreSession(error ? null : data.session);
+    }).catch(() => restoreSession(null));
+    return () => {
+      active = false;
+      subscription.unsubscribe();
+    };
+  }, [router]);
+
+  function loadDraft(draft: ProfileDraft) {
+    setName(draft.name);
+    setUsername(draft.username);
+    setTitle(draft.title);
+    setBio(draft.bio);
+    setAvatar(draft.avatar);
+    setWallpaper(draft.wallpaper);
+    setBackground(draft.background);
+    setAccent(draft.accent);
+    setTextColor(draft.textColor);
+    setRadius(draft.radius);
+    setWidgets(draft.widgets);
+    setLinks(draft.links);
+  }
+
+  async function signOut() {
+    if (!supabase || signingOut) return;
+    setSigningOut(true);
+    setStatus("");
+    try {
+      const { error } = await supabase.auth.signOut();
+      if (error) setStatus("Não foi possível sair. Tente novamente.");
+    } catch {
+      setStatus("Não foi possível sair. Tente novamente.");
+    } finally {
+      setSigningOut(false);
+    }
+  }
 
   function updateWidget(id: string, enabled: boolean) {
     setWidgets((current) =>
@@ -106,6 +181,7 @@ export default function EditorPage() {
   }
 
   function saveProfile() {
+    if (!userId) return;
     const data = {
       name,
       username,
@@ -122,14 +198,17 @@ export default function EditorPage() {
     };
 
     try {
-      localStorage.setItem("meemu-profile-draft", JSON.stringify(data));
+      localStorage.setItem(`meemu-profile-draft:${userId}`, JSON.stringify(data));
       setSaved(true);
+      setStatus("Rascunho guardado neste navegador.");
     } catch {
       setSaved(false);
+      setStatus("Não foi possível guardar o rascunho. O armazenamento pode estar cheio ou indisponível.");
     }
   }
 
   function resetProfile() {
+    setStatus("");
     setName("Teu nome");
     setUsername("teuusername");
     setTitle("O teu mundo. As tuas regras.");
@@ -150,7 +229,10 @@ export default function EditorPage() {
 
   function uploadAvatar(file?: File) {
     if (!file) return;
-    if (!file.type.startsWith("image/")) return;
+    if (!file.type.startsWith("image/")) {
+      setStatus("Escolhe um ficheiro de imagem.");
+      return;
+    }
 
     const reader = new FileReader();
     reader.onload = () => {
@@ -159,6 +241,7 @@ export default function EditorPage() {
         setSaved(false);
       }
     };
+    reader.onerror = () => setStatus("Não foi possível ler a imagem. Tente novamente.");
     reader.readAsDataURL(file);
   }
 
@@ -175,13 +258,17 @@ export default function EditorPage() {
     { id: "links", label: "Links", description: "As tuas redes e páginas", icon: Link2 },
   ];
 
+  if (!userId) {
+    return <main className="me-editor"><p role="status">A validar a tua sessão...</p></main>;
+  }
+
   return (
     <main className="me-editor">
       <header className="me-editor-topbar">
-        <a className="me-editor-brand" href="/" aria-label="Voltar ao MEEMU">
+        <Link className="me-editor-brand" href="/" aria-label="Voltar ao MEEMU">
           <span className="me-editor-logo">m.</span>
           <span>meemu<span className="me-editor-brand-dot">.</span></span>
-        </a>
+        </Link>
 
         <div className="me-editor-top-label">
           <span className="me-editor-live-dot" />
@@ -189,21 +276,24 @@ export default function EditorPage() {
         </div>
 
         <div className="me-editor-top-actions">
-          <a className="me-editor-view" href="/" target="_blank" rel="noreferrer">
+          <a className="me-editor-view" href="#perfil-preview">
             <Eye size={16} /> Ver perfil
           </a>
           <button className="me-editor-save" onClick={saveProfile}>
             {saved ? <Check size={16} /> : <Save size={16} />}
             {saved ? "Guardado" : "Guardar"}
           </button>
+          <button className="me-editor-view" onClick={signOut} disabled={signingOut}>
+            {signingOut ? "A sair..." : "Sair"}
+          </button>
         </div>
       </header>
 
       <div className="me-editor-heading">
         <div>
-          <a href="/" className="me-editor-back">
+          <Link href="#perfil-preview" className="me-editor-back">
             <ArrowLeft size={14} /> Voltar ao espaço
-          </a>
+          </Link>
           <p className="me-editor-eyebrow">PERSONALIZAÇÃO MEEMU</p>
           <h1>O teu espaço<span>.</span></h1>
           <p className="me-editor-subtitle">
@@ -243,6 +333,13 @@ export default function EditorPage() {
         </aside>
 
         <section className="me-editor-controls">
+          {status && <p className="me-editor-helper" role="status" aria-live="polite">{status}</p>}
+          {legacyDraft && <button className="me-editor-reset" onClick={() => {
+            loadDraft(legacyDraft);
+            setSaved(false);
+            setLegacyDraft(null);
+            setStatus("Rascunho anterior importado. Guarda as alterações para associá-lo a esta conta.");
+          }}>Importar rascunho anterior deste navegador</button>}
           {section === "perfil" && (
             <div className="me-editor-section">
               <div className="me-editor-section-heading">
@@ -259,6 +356,8 @@ export default function EditorPage() {
                 <div className="me-editor-avatar-row">
                   <div className="me-editor-avatar" style={{ background: accent }}>
                     {avatar ? (
+                      // Local FileReader data URLs do not need image optimization.
+                      // eslint-disable-next-line @next/next/no-img-element
                       <img src={avatar} alt="Pré-visualização do avatar" />
                     ) : (
                       <span>{name.trim().charAt(0).toLowerCase() || "m"}</span>
@@ -277,7 +376,7 @@ export default function EditorPage() {
                     </label>
                   </div>
                   {avatar && (
-                    <button className="me-editor-icon-button" onClick={() => setAvatar("")} aria-label="Remover foto">
+                    <button className="me-editor-icon-button" onClick={() => { setAvatar(""); setSaved(false); }} aria-label="Remover foto">
                       <Trash2 size={16} />
                     </button>
                   )}
@@ -515,7 +614,7 @@ export default function EditorPage() {
           </div>
         </section>
 
-        <aside className="me-editor-preview">
+        <aside className="me-editor-preview" id="perfil-preview">
           <div className="me-editor-preview-heading">
             <div>
               <span className="me-editor-kicker">LIVE PREVIEW</span>
@@ -542,7 +641,11 @@ export default function EditorPage() {
 
             <div className="me-editor-preview-content">
               <div className="me-editor-preview-avatar" style={{ background: accent }}>
-                {avatar ? <img src={avatar} alt="" /> : <span>{name.trim().charAt(0).toLowerCase() || "m"}</span>}
+                {avatar ? (
+                  // Local FileReader data URL, also used in the upload preview.
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={avatar} alt="" />
+                ) : <span>{name.trim().charAt(0).toLowerCase() || "m"}</span>}
               </div>
               <h3>{name || "Teu nome"}</h3>
               <p className="me-editor-preview-handle">@{username || "teuusername"}</p>
@@ -562,11 +665,11 @@ export default function EditorPage() {
               ))}
 
               {links.filter((link) => link.title.trim()).map((link) => (
-                <div className="me-editor-preview-link" key={link.id} style={{ borderColor: `${accent}40` }}>
+                <a className="me-editor-preview-link" key={link.id} style={{ borderColor: `${accent}40` }} href={profileLinkUrl(link.url)} target="_blank" rel="noopener noreferrer">
                   <Link2 size={13} style={{ color: accent }} />
                   <span>{link.title}</span>
                   <ChevronRight size={13} />
-                </div>
+                </a>
               ))}
             </div>
           </div>
@@ -579,7 +682,7 @@ export default function EditorPage() {
       </div>
 
       <footer className="me-editor-footer">
-        <a href="/"><ArrowLeft size={14} /> Voltar ao perfil</a>
+        <Link href="#perfil-preview"><ArrowLeft size={14} /> Voltar ao perfil</Link>
         <span>FEITO À TUA MANEIRA <span>✳</span></span>
         <span>MEEMU © 2026</span>
       </footer>
