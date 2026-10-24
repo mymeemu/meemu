@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState } from "react";
@@ -55,6 +54,55 @@ export default function HomePage() {
         if (!cleanUsername) {
           setMessage("Digite o nome que pretende usar no MEEMU.");
           setBusy(false);
+            async function handlePasswordReset() {
+    if (busy) return;
+
+    setMessage("");
+
+    if (!supabase) {
+      setMessage(
+        "O serviço está indisponível. Tente novamente mais tarde."
+      );
+      return;
+    }
+
+    const cleanEmail = email.trim();
+
+    if (!cleanEmail) {
+      setMessage("Digite o seu email no campo acima.");
+      return;
+    }
+
+    setBusy(true);
+
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(
+        cleanEmail,
+        {
+          redirectTo: `${window.location.origin}/reset-password`,
+        }
+      );
+
+      if (error) {
+        console.error("[MEEMU password reset]", error.message);
+
+        setMessage(
+          "Não foi possível enviar o email de recuperação. Tente novamente."
+        );
+        return;
+      }
+
+      setMessage(
+        "Se existir uma conta com esse email, enviaremos um link para redefinir a senha. Verifique também o spam."
+      );
+    } catch {
+      setMessage(
+        "Ocorreu um problema de ligação. Tente novamente."
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
           return;
         }
 
@@ -71,17 +119,28 @@ export default function HomePage() {
 
         
 if (error) {
-  console.error("[MEEMU signup]", {
+  console.error("[MEEMU login]", {
     message: error.message,
     status: error.status,
     code: error.code,
   });
 
-  setMessage(`Erro no cadastro: ${error.message}`);
+  const errorText = error.message.toLowerCase();
+
+  if (errorText.includes("email not confirmed")) {
+    setMessage(
+      "Confirme o seu email antes de entrar. Verifique a sua caixa de entrada."
+    );
+  } else if (errorText.includes("invalid login credentials")) {
+    setMessage(
+      "Email ou senha incorretos. Verifique os dados ou recupere a sua senha."
+    );
+  } else {
+    setMessage(`Não foi possível entrar: ${error.message}`);
+  }
 
   return;
 }
-
 
         if (data.session) {
           router.push("/editor");
@@ -428,7 +487,28 @@ if (error) {
                 />
               </span>
             </label>
-
+            {mode === "login" && (
+              <button
+                type="button"
+                onClick={handlePasswordReset}
+                disabled={busy}
+                style={{
+                  display: "block",
+                  width: "100%",
+                  margin: "4px 0 12px",
+                  padding: "8px 0",
+                  border: "none",
+                  background: "transparent",
+                  color: "#7c6ee6",
+                  fontSize: "13px",
+                  fontWeight: 600,
+                  textAlign: "right",
+                  cursor: busy ? "wait" : "pointer",
+                }}
+              >
+                {busy ? "Aguarde..." : "Esqueci minha senha"}
+              </button>
+            )}
             <button
               className="auth-submit"
               type="submit"
