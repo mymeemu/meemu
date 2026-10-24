@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState } from "react";
@@ -53,15 +54,93 @@ export default function HomePage() {
 
         if (!cleanUsername) {
           setMessage("Digite o nome que pretende usar no MEEMU.");
-          setBusy(false);
-            async function handlePasswordReset() {
+          return;
+        }
+
+        const { data, error } = await supabase.auth.signUp({
+          email: cleanEmail,
+          password,
+          options: {
+            data: {
+              display_name: cleanUsername,
+              username: cleanUsername,
+            },
+          },
+        });
+
+        if (error) {
+          console.error("[MEEMU signup]", {
+            message: error.message,
+            status: error.status,
+            code: error.code,
+          });
+
+          setMessage(`Erro no cadastro: ${error.message}`);
+          return;
+        }
+
+        if (data.session) {
+          router.push("/editor");
+          router.refresh();
+          return;
+        }
+
+        setMessage(
+          "Conta criada! Verifique a sua caixa de email e confirme o endereço antes de entrar."
+        );
+        return;
+      }
+
+      const { error } = await supabase.auth.signInWithPassword({
+        email: cleanEmail,
+        password,
+      });
+
+      if (error) {
+        console.error("[MEEMU login]", {
+          message: error.message,
+          status: error.status,
+          code: error.code,
+        });
+
+        const errorText = error.message.toLowerCase();
+
+        if (errorText.includes("email not confirmed")) {
+          setMessage(
+            "Confirme o seu email antes de entrar. Verifique a sua caixa de entrada."
+          );
+        } else if (errorText.includes("invalid login credentials")) {
+          setMessage(
+            "Email ou senha incorretos. Verifique os dados ou recupere a sua senha."
+          );
+        } else {
+          setMessage(`Não foi possível entrar: ${error.message}`);
+        }
+
+        return;
+      }
+
+      router.push("/editor");
+      router.refresh();
+    } catch (error) {
+      console.error("[MEEMU auth]", error);
+
+      setMessage(
+        "Ocorreu um problema de ligação. Tente novamente dentro de instantes."
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handlePasswordReset() {
     if (busy) return;
 
     setMessage("");
 
     if (!supabase) {
       setMessage(
-        "O serviço está indisponível. Tente novamente mais tarde."
+        "A ligação ao serviço não está configurada. Tente novamente mais tarde."
       );
       return;
     }
@@ -69,7 +148,7 @@ export default function HomePage() {
     const cleanEmail = email.trim();
 
     if (!cleanEmail) {
-      setMessage("Digite o seu email no campo acima.");
+      setMessage("Digite o seu email no campo acima antes de recuperar a senha.");
       return;
     }
 
@@ -93,89 +172,11 @@ export default function HomePage() {
       }
 
       setMessage(
-        "Se existir uma conta com esse email, enviaremos um link para redefinir a senha. Verifique também o spam."
+        "Se existir uma conta com esse email, enviaremos um link para redefinir a senha. Verifique também a pasta de spam."
       );
-    } catch {
-      setMessage(
-        "Ocorreu um problema de ligação. Tente novamente."
-      );
-    } finally {
-      setBusy(false);
-    }
-  }
-          return;
-        }
+    } catch (error) {
+      console.error("[MEEMU password reset]", error);
 
-        const { data, error } = await supabase.auth.signUp({
-          email: cleanEmail,
-          password,
-          options: {
-            data: {
-              display_name: cleanUsername,
-              username: cleanUsername,
-            },
-          },
-        });
-
-        
-if (error) {
-  console.error("[MEEMU login]", {
-    message: error.message,
-    status: error.status,
-    code: error.code,
-  });
-
-  const errorText = error.message.toLowerCase();
-
-  if (errorText.includes("email not confirmed")) {
-    setMessage(
-      "Confirme o seu email antes de entrar. Verifique a sua caixa de entrada."
-    );
-  } else if (errorText.includes("invalid login credentials")) {
-    setMessage(
-      "Email ou senha incorretos. Verifique os dados ou recupere a sua senha."
-    );
-  } else {
-    setMessage(`Não foi possível entrar: ${error.message}`);
-  }
-
-  return;
-}
-
-        if (data.session) {
-          router.push("/editor");
-          router.refresh();
-          return;
-        }
-
-        setMessage(
-          "Conta criada! Verifique a sua caixa de email e confirme o endereço antes de entrar."
-        );
-        return;
-      }
-
-      const { error } = await supabase.auth.signInWithPassword({
-        email: cleanEmail,
-        password,
-      });
-
-      if (error) {
-  console.error("[MEEMU signup]", {
-    message: error.message,
-    status: error.status,
-    code: error.code,
-  });
-
-  setMessage(
-    `Erro no cadastro: ${error.message}`
-  );
-
-  return;
-}
-
-      router.push("/editor");
-      router.refresh();
-    } catch {
       setMessage(
         "Ocorreu um problema de ligação. Tente novamente dentro de instantes."
       );
@@ -487,6 +488,7 @@ if (error) {
                 />
               </span>
             </label>
+
             {mode === "login" && (
               <button
                 type="button"
@@ -509,6 +511,7 @@ if (error) {
                 {busy ? "Aguarde..." : "Esqueci minha senha"}
               </button>
             )}
+
             <button
               className="auth-submit"
               type="submit"
