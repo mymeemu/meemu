@@ -28,7 +28,46 @@ export default function HomePage() {
   const [username, setUsername] = useState("");
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
+  
+  async function handlePasswordReset() {
+    if (busy) return;
 
+    if (!supabase) {
+      setMessage("O serviço de recuperação está indisponível. Tente novamente.");
+      return;
+    }
+
+    const cleanEmail = email.trim();
+
+    if (!cleanEmail) {
+      setMessage("Digite seu e-mail no campo acima.");
+      return;
+    }
+
+    setBusy(true);
+    setMessage("");
+
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(
+        cleanEmail,
+        {
+          redirectTo: `${window.location.origin}/reset-password`,
+        }
+      );
+
+      if (error) {
+        setMessage(error.message);
+      } else {
+        setMessage(
+          "Se esse e-mail estiver cadastrado, você receberá um link para redefinir sua senha."
+        );
+      }
+    } catch {
+      setMessage("Não foi possível enviar o e-mail. Tente novamente.");
+    } finally {
+      setBusy(false);
+    }
+  }
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
