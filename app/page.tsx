@@ -488,28 +488,26 @@ export default function HomePage() {
               </span>
             </label>
 
-            {mode === "login" && (
               <button
-                type="button"
-                onClick={handlePasswordReset}
-                disabled={busy}
-                style={{
-                  display: "block",
-                  width: "100%",
-                  margin: "4px 0 12px",
-                  padding: "8px 0",
-                  border: "none",
-                  background: "transparent",
-                  color: "#7c6ee6",
-                  fontSize: "13px",
-                  fontWeight: 600,
-                  textAlign: "right",
-                  cursor: busy ? "wait" : "pointer",
-                }}
-              >
-                {busy ? "Aguarde..." : "Esqueci minha senha"}
-              </button>
-            )}
+  type="button"
+  onClick={handlePasswordReset}
+  disabled={busy}
+  style={{
+    display: "block",
+    width: "100%",
+    margin: "4px 0 12px",
+    padding: "8px 0",
+    border: "none",
+    background: "transparent",
+    color: "#7c6ee6",
+    fontSize: "13px",
+    fontWeight: 600,
+    textAlign: "right",
+    cursor: busy ? "wait" : "pointer",
+  }}
+>
+  {busy ? "Aguarde..." : "Esqueci minha senha"}
+</button>
 
             <button
               className="auth-submit"
