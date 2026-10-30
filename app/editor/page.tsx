@@ -1,4 +1,3 @@
-
 "use client";
 
 import "./editor.css";
@@ -69,6 +68,7 @@ export default function EditorPage() {
   const [statusError, setStatusError] = useState(false);
   const [profileId, setProfileId] = useState<string | null>(null);
   const [storedAvatarUrl, setStoredAvatarUrl] = useState<string | null>(null);
+  const [pendingAvatarFile, setPendingAvatarFile] = useState<File | null>(null);
   const [storedWallpaperUrl, setStoredWallpaperUrl] = useState<string | null>(null);
 
   useEffect(() => {
@@ -86,6 +86,7 @@ export default function EditorPage() {
         const { data: authData, error: authError } = await supabase.auth.getUser();
         if (authError) throw authError;
         const user = authData.user;
+
         if (!user) {
           window.location.href = "/";
           return;
@@ -104,7 +105,10 @@ export default function EditorPage() {
         if (cancelled) return;
 
         if (profile) {
-          const theme = profile.theme && typeof profile.theme === "object" ? profile.theme as Record<string, unknown> : {};
+          const theme = profile.theme && typeof profile.theme === "object"
+            ? profile.theme as Record<string, unknown>
+            : {};
+
           setName(profile.display_name || "");
           setUsername(profile.username || "");
           setBio(profile.bio || "");
@@ -117,23 +121,47 @@ export default function EditorPage() {
           setAccent(typeof theme.accent === "string" ? theme.accent : "#7C3AED");
           setTextColor(typeof theme.textColor === "string" ? theme.textColor : "#29243B");
           setRadius(typeof theme.radius === "number" ? Math.min(36, Math.max(8, theme.radius)) : 22);
+
           if (Array.isArray(profile.widgets)) {
-            const loadedWidgets = profile.widgets.filter((item: unknown) => item && typeof item === "object" && "id" in item && "name" in item && "enabled" in item) as WidgetItem[];
+            const loadedWidgets = profile.widgets.filter(
+              (item: unknown) =>
+                item &&
+                typeof item === "object" &&
+                "id" in item &&
+                "name" in item &&
+                "enabled" in item
+            ) as WidgetItem[];
+
             if (loadedWidgets.length) setWidgets(loadedWidgets);
           }
+
           if (Array.isArray(profile.links)) {
-            const loadedLinks = profile.links.filter((item: unknown) => item && typeof item === "object" && "title" in item && "url" in item).map((item: any, index: number) => ({
-              id: typeof item.id === "number" ? item.id : Date.now() + index,
-              title: String(item.title ?? ""),
-              url: String(item.url ?? ""),
-            }));
+            const loadedLinks = profile.links
+              .filter(
+                (item: unknown) =>
+                  item &&
+                  typeof item === "object" &&
+                  "title" in item &&
+                  "url" in item
+              )
+              .map((item: any, index: number) => ({
+                id: typeof item.id === "number" ? item.id : Date.now() + index,
+                title: String(item.title ?? ""),
+                url: String(item.url ?? ""),
+              }));
+
             setLinks(loadedLinks);
           }
         }
       } catch (error) {
         console.error("Erro ao carregar perfil MEEMU:", error);
+
         if (!cancelled) {
-          setStatusMessage(error instanceof Error ? `Não foi possível carregar o perfil: ${error.message}` : "Não foi possível carregar o perfil.");
+          setStatusMessage(
+            error instanceof Error
+              ? `Não foi possível carregar o perfil: ${error.message}`
+              : "Não foi possível carregar o perfil."
+          );
           setStatusError(true);
         }
       } finally {
@@ -142,7 +170,10 @@ export default function EditorPage() {
     }
 
     void loadProfile();
-    return () => { cancelled = true; };
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   function updateWidget(id: string, enabled: boolean) {
@@ -151,6 +182,7 @@ export default function EditorPage() {
         widget.id === id ? { ...widget, enabled } : widget
       )
     );
+
     setSaved(false);
   }
 
@@ -158,10 +190,14 @@ export default function EditorPage() {
     setWidgets((current) => {
       const next = [...current];
       const target = index + direction;
+
       if (target < 0 || target >= next.length) return current;
+
       [next[index], next[target]] = [next[target], next[index]];
+
       return next;
     });
+
     setSaved(false);
   }
 
@@ -170,6 +206,7 @@ export default function EditorPage() {
       ...current,
       { id: Date.now(), title: "Novo link", url: "https://" },
     ]);
+
     setSaved(false);
   }
 
@@ -179,6 +216,7 @@ export default function EditorPage() {
         link.id === id ? { ...link, [field]: value } : link
       )
     );
+
     setSaved(false);
   }
 
@@ -193,11 +231,6 @@ export default function EditorPage() {
       setStatusError(true);
       return;
     }
-    if (!profileId) {
-      setStatusMessage("Não encontrámos a tua sessão. Sai e entra novamente na tua conta.");
-      setStatusError(true);
-      return;
-    }
 
     setSavingProfile(true);
     setSaved(false);
@@ -205,9 +238,63 @@ export default function EditorPage() {
     setStatusError(false);
 
     try {
-      const avatarUrlToSave = avatar.startsWith("data:") ? storedAvatarUrl : (avatar || null);
+      // Confirma a sessão atual antes de enviar qualquer arquivo.
+      const { data: authData, error: authError } = await supabase.auth.getUser();
+
+      if (authError) throw authError;
+
+      const user = authData.user;
+
+      if (!user) {
+        throw new Error("A tua sessão expirou. Sai e entra novamente na tua conta.");
+      }
+
+      let avatarUrlToSave = storedAvatarUrl;
+
+      // O arquivo selecionado no dispositivo só é enviado ao clicar em Guardar.
+      if (pendingAvatarFile) {
+        const file = pendingAvatarFile;
+
+        const allowedTypes = [
+          "image/jpeg",
+          "image/png",
+          "image/webp",
+          "image/gif",
+        ];
+
+        if (!allowedTypes.includes(file.type)) {
+          throw new Error("Formato inválido. Usa JPG, PNG, WebP ou GIF.");
+        }
+
+        if (file.size > 5 * 1024 * 1024) {
+          throw new Error("A imagem deve ter no máximo 5 MB.");
+        }
+
+        const extension = file.type === "image/jpeg"
+          ? "jpg"
+          : file.type.split("/")[1];
+
+        const filePath = `${user.id}/avatar-${Date.now()}.${extension}`;
+
+        const { error: uploadError } = await supabase.storage
+          .from("meemu-media")
+          .upload(filePath, file, {
+            cacheControl: "3600",
+            contentType: file.type,
+            upsert: false,
+          });
+
+        if (uploadError) throw uploadError;
+
+        const { data: publicUrlData } = supabase.storage
+          .from("meemu-media")
+          .getPublicUrl(filePath);
+
+        avatarUrlToSave = publicUrlData.publicUrl;
+      }
+
       const payload = {
-        id: profileId,
+        id: user.id,
         username: username.trim() || null,
         display_name: name.trim() || "Teu nome",
         bio: bio.trim(),
@@ -220,21 +307,31 @@ export default function EditorPage() {
         updated_at: new Date().toISOString(),
       };
 
-      const { error } = await supabase.from("profiles").upsert(payload, { onConflict: "id" });
+      const { error } = await supabase
+        .from("profiles")
+        .upsert(payload, { onConflict: "id" });
+
       if (error) throw error;
 
+      setProfileId(user.id);
       setStoredAvatarUrl(avatarUrlToSave);
+      setAvatar(avatarUrlToSave || "");
+      setPendingAvatarFile(null);
       setSaved(true);
-      if (avatar.startsWith("data:")) {
-        setStatusMessage("Perfil guardado. A nova foto ainda não foi enviada para o armazenamento; vamos configurar isso a seguir.");
-      } else {
-        setStatusMessage("As alterações foram guardadas no Supabase.");
-      }
+      setStatusMessage("Perfil e foto guardados com sucesso!");
       setStatusError(false);
+
     } catch (error) {
       console.error("Erro ao guardar perfil MEEMU:", error);
-      setStatusMessage(error instanceof Error ? `Não foi possível guardar: ${error.message}` : "Não foi possível guardar as alterações.");
+
+      setStatusMessage(
+        error instanceof Error
+          ? `Não foi possível guardar: ${error.message}`
+          : "Não foi possível guardar as alterações."
+      );
+
       setStatusError(true);
+
     } finally {
       setSavingProfile(false);
     }
@@ -252,26 +349,56 @@ export default function EditorPage() {
     setTextColor("#29243B");
     setRadius(22);
     setWidgets(initialWidgets);
+
     setLinks([
       { id: 1, title: "Instagram", url: "https://instagram.com/" },
       { id: 2, title: "O meu site", url: "https://" },
     ]);
+
     setSaved(false);
-    setStatusMessage("Exemplo restaurado apenas nesta pré-visualização. Clica em Guardar alterações para gravar no banco. ");
+    setStatusMessage("Exemplo restaurado apenas nesta pré-visualização. Clica em Guardar alterações para gravar no banco.");
     setStatusError(false);
   }
 
   function uploadAvatar(file?: File) {
     if (!file) return;
-    if (!file.type.startsWith("image/")) return;
+
+    const allowedTypes = [
+      "image/jpeg",
+      "image/png",
+      "image/webp",
+      "image/gif",
+    ];
+
+    if (!allowedTypes.includes(file.type)) {
+      setStatusMessage("Formato inválido. Escolhe JPG, PNG, WebP ou GIF.");
+      setStatusError(true);
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      setStatusMessage("A imagem deve ter no máximo 5 MB.");
+      setStatusError(true);
+      return;
+    }
 
     const reader = new FileReader();
+
     reader.onload = () => {
       if (typeof reader.result === "string") {
         setAvatar(reader.result);
+        setPendingAvatarFile(file);
         setSaved(false);
+        setStatusMessage("Imagem selecionada! Clica em Guardar para enviar ao MEEMU.");
+        setStatusError(false);
       }
     };
+
+    reader.onerror = () => {
+      setStatusMessage("Não foi possível ler a imagem selecionada.");
+      setStatusError(true);
+    };
+
     reader.readAsDataURL(file);
   }
 
@@ -305,7 +432,12 @@ export default function EditorPage() {
           <a className="me-editor-view" href="/" target="_blank" rel="noreferrer">
             <Eye size={16} /> Ver perfil
           </a>
-          <button className="me-editor-save" onClick={saveProfile} disabled={savingProfile || loadingProfile}>
+
+          <button
+            className="me-editor-save"
+            onClick={saveProfile}
+            disabled={savingProfile || loadingProfile}
+          >
             {saved ? <Check size={16} /> : <Save size={16} />}
             {savingProfile ? "A guardar..." : saved ? "Guardado" : "Guardar"}
           </button>
@@ -317,12 +449,15 @@ export default function EditorPage() {
           <a href="/" className="me-editor-back">
             <ArrowLeft size={14} /> Voltar ao espaço
           </a>
+
           <p className="me-editor-eyebrow">PERSONALIZAÇÃO MEEMU</p>
           <h1>O teu espaço<span>.</span></h1>
+
           <p className="me-editor-subtitle">
             Cada detalhe conta uma parte da tua história.
           </p>
         </div>
+
         <div className="me-editor-heading-mark">✳</div>
       </div>
 
@@ -332,24 +467,32 @@ export default function EditorPage() {
 
           {sections.map((item) => {
             const Icon = item.icon;
+
             return (
               <button
                 key={item.id}
                 className={`me-editor-nav-item ${section === item.id ? "active" : ""}`}
                 onClick={() => setSection(item.id)}
               >
-                <span className="me-editor-nav-icon"><Icon size={18} /></span>
+                <span className="me-editor-nav-icon">
+                  <Icon size={18} />
+                </span>
+
                 <span className="me-editor-nav-copy">
                   <strong>{item.label}</strong>
                   <small>{item.description}</small>
                 </span>
+
                 <ChevronRight size={15} className="me-editor-nav-chevron" />
               </button>
             );
           })}
 
           <div className="me-editor-sidebar-bottom">
-            <div className="me-editor-tip-icon"><Settings2 size={16} /></div>
+            <div className="me-editor-tip-icon">
+              <Settings2 size={16} />
+            </div>
+
             <strong>O teu espaço, as tuas regras.</strong>
             <p>Experimenta. Muda. Encontra o teu estilo.</p>
           </div>
@@ -357,10 +500,21 @@ export default function EditorPage() {
 
         <section className="me-editor-controls">
           {(loadingProfile || statusMessage) && (
-            <div role="status" style={{ margin: "0 0 16px", padding: "12px 14px", borderRadius: 12, background: statusError ? "#FEE2E2" : "#EEF2FF", color: statusError ? "#991B1B" : "#3730A3", fontSize: 13 }}>
+            <div
+              role="status"
+              style={{
+                margin: "0 0 16px",
+                padding: "12px 14px",
+                borderRadius: 12,
+                background: statusError ? "#FEE2E2" : "#EEF2FF",
+                color: statusError ? "#991B1B" : "#3730A3",
+                fontSize: 13,
+              }}
+            >
               {loadingProfile ? "A carregar o teu perfil..." : statusMessage}
             </div>
           )}
+
           {section === "perfil" && (
             <div className="me-editor-section">
               <div className="me-editor-section-heading">
@@ -369,11 +523,13 @@ export default function EditorPage() {
                   <h2>Quem és tu?</h2>
                   <p>Mostra ao mundo um pouco de quem és.</p>
                 </div>
+
                 <UserRound size={23} />
               </div>
 
               <div className="me-editor-field">
                 <label>Foto de perfil</label>
+
                 <div className="me-editor-avatar-row">
                   <div className="me-editor-avatar" style={{ background: accent }}>
                     {avatar ? (
@@ -382,20 +538,33 @@ export default function EditorPage() {
                       <span>{name.trim().charAt(0).toLowerCase() || "m"}</span>
                     )}
                   </div>
+
                   <div className="me-editor-upload-copy">
                     <strong>A tua imagem, a tua identidade.</strong>
                     <p>Escolhe uma imagem do teu dispositivo.</p>
+
                     <label className="me-editor-upload-button">
                       <Upload size={14} /> Escolher imagem
+
                       <input
                         type="file"
-                        accept="image/*"
+                        accept="image/jpeg,image/png,image/webp,image/gif"
                         onChange={(event) => uploadAvatar(event.target.files?.[0])}
                       />
                     </label>
                   </div>
+
                   {avatar && (
-                    <button className="me-editor-icon-button" onClick={() => setAvatar("")} aria-label="Remover foto">
+                    <button
+                      className="me-editor-icon-button"
+                      onClick={() => {
+                        setAvatar("");
+                        setPendingAvatarFile(null);
+                        setStoredAvatarUrl(null);
+                        setSaved(false);
+                      }}
+                      aria-label="Remover foto"
+                    >
                       <Trash2 size={16} />
                     </button>
                   )}
@@ -404,26 +573,70 @@ export default function EditorPage() {
 
               <div className="me-editor-field">
                 <label htmlFor="me-name">Nome de exibição</label>
-                <input id="me-name" value={name} maxLength={50} onChange={(e) => { setName(e.target.value); setSaved(false); }} placeholder="Como te chamam?" />
+
+                <input
+                  id="me-name"
+                  value={name}
+                  maxLength={50}
+                  onChange={(e) => {
+                    setName(e.target.value);
+                    setSaved(false);
+                  }}
+                  placeholder="Como te chamam?"
+                />
               </div>
 
               <div className="me-editor-field">
                 <label htmlFor="me-username">Nome de usuário</label>
+
                 <div className="me-editor-input-prefix">
                   <span>@</span>
-                  <input id="me-username" value={username} maxLength={30} onChange={(e) => { setUsername(e.target.value.replace(/[^a-zA-Z0-9_.]/g, "")); setSaved(false); }} placeholder="teuusername" />
+
+                  <input
+                    id="me-username"
+                    value={username}
+                    maxLength={30}
+                    onChange={(e) => {
+                      setUsername(e.target.value.replace(/[^a-zA-Z0-9_.]/g, ""));
+                      setSaved(false);
+                    }}
+                    placeholder="teuusername"
+                  />
                 </div>
+
                 <small>Usa letras, números, pontos ou sublinhados.</small>
               </div>
 
               <div className="me-editor-field">
                 <label htmlFor="me-title">Título principal</label>
-                <input id="me-title" value={title} maxLength={90} onChange={(e) => { setTitle(e.target.value); setSaved(false); }} placeholder="Uma frase que te representa" />
+
+                <input
+                  id="me-title"
+                  value={title}
+                  maxLength={90}
+                  onChange={(e) => {
+                    setTitle(e.target.value);
+                    setSaved(false);
+                  }}
+                  placeholder="Uma frase que te representa"
+                />
               </div>
 
               <div className="me-editor-field">
                 <label htmlFor="me-bio">Biografia</label>
-                <textarea id="me-bio" value={bio} maxLength={240} rows={4} onChange={(e) => { setBio(e.target.value); setSaved(false); }} placeholder="Conta um pouco sobre ti..." />
+
+                <textarea
+                  id="me-bio"
+                  value={bio}
+                  maxLength={240}
+                  rows={4}
+                  onChange={(e) => {
+                    setBio(e.target.value);
+                    setSaved(false);
+                  }}
+                  placeholder="Conta um pouco sobre ti..."
+                />
+
                 <small>{bio.length}/240 caracteres</small>
               </div>
             </div>
@@ -437,6 +650,7 @@ export default function EditorPage() {
                   <h2>Escolhe as tuas cores</h2>
                   <p>Cria uma combinação que tenha a tua cara.</p>
                 </div>
+
                 <Palette size={23} />
               </div>
 
@@ -445,9 +659,18 @@ export default function EditorPage() {
                   <strong>Cor de destaque</strong>
                   <p>Botões, ícones e detalhes.</p>
                 </div>
+
                 <label className="me-editor-color-control">
                   <span style={{ background: accent }} />
-                  <input type="color" value={accent} onChange={(e) => { setAccent(e.target.value); setSaved(false); }} aria-label="Cor de destaque" />
+                  <input
+                    type="color"
+                    value={accent}
+                    onChange={(e) => {
+                      setAccent(e.target.value);
+                      setSaved(false);
+                    }}
+                    aria-label="Cor de destaque"
+                  />
                   <code>{accent.toUpperCase()}</code>
                 </label>
               </div>
@@ -457,9 +680,18 @@ export default function EditorPage() {
                   <strong>Cor de fundo</strong>
                   <p>O fundo principal dos widgets.</p>
                 </div>
+
                 <label className="me-editor-color-control">
                   <span style={{ background: background }} />
-                  <input type="color" value={background} onChange={(e) => { setBackground(e.target.value); setSaved(false); }} aria-label="Cor de fundo" />
+                  <input
+                    type="color"
+                    value={background}
+                    onChange={(e) => {
+                      setBackground(e.target.value);
+                      setSaved(false);
+                    }}
+                    aria-label="Cor de fundo"
+                  />
                   <code>{background.toUpperCase()}</code>
                 </label>
               </div>
@@ -469,36 +701,91 @@ export default function EditorPage() {
                   <strong>Cor do texto</strong>
                   <p>Títulos e informações do perfil.</p>
                 </div>
+
                 <label className="me-editor-color-control">
                   <span style={{ background: textColor }} />
-                  <input type="color" value={textColor} onChange={(e) => { setTextColor(e.target.value); setSaved(false); }} aria-label="Cor do texto" />
+                  <input
+                    type="color"
+                    value={textColor}
+                    onChange={(e) => {
+                      setTextColor(e.target.value);
+                      setSaved(false);
+                    }}
+                    aria-label="Cor do texto"
+                  />
                   <code>{textColor.toUpperCase()}</code>
                 </label>
               </div>
 
               <div className="me-editor-field me-editor-radius-field">
                 <label htmlFor="me-radius">Arredondamento dos widgets</label>
+
                 <div className="me-editor-range-row">
                   <span>Suave</span>
-                  <input id="me-radius" type="range" min="8" max="36" value={radius} onChange={(e) => { setRadius(Number(e.target.value)); setSaved(false); }} />
+
+                  <input
+                    id="me-radius"
+                    type="range"
+                    min="8"
+                    max="36"
+                    value={radius}
+                    onChange={(e) => {
+                      setRadius(Number(e.target.value));
+                      setSaved(false);
+                    }}
+                  />
+
                   <span>Redondo</span>
                 </div>
+
                 <small>{radius}px de arredondamento</small>
               </div>
 
               <div className="me-editor-presets">
                 <span className="me-editor-label">COMBINAÇÕES RÁPIDAS</span>
+
                 <div className="me-editor-preset-list">
-                  <button onClick={() => { setAccent("#7C3AED"); setBackground("#F5F3FF"); setTextColor("#29243B"); setSaved(false); }}>
+                  <button
+                    onClick={() => {
+                      setAccent("#7C3AED");
+                      setBackground("#F5F3FF");
+                      setTextColor("#29243B");
+                      setSaved(false);
+                    }}
+                  >
                     <i style={{ background: "#7C3AED" }} /> Lavanda
                   </button>
-                  <button onClick={() => { setAccent("#2563EB"); setBackground("#EFF6FF"); setTextColor("#172554"); setSaved(false); }}>
+
+                  <button
+                    onClick={() => {
+                      setAccent("#2563EB");
+                      setBackground("#EFF6FF");
+                      setTextColor("#172554");
+                      setSaved(false);
+                    }}
+                  >
                     <i style={{ background: "#2563EB" }} /> Oceano
                   </button>
-                  <button onClick={() => { setAccent("#DB2777"); setBackground("#FDF2F8"); setTextColor("#500724"); setSaved(false); }}>
+
+                  <button
+                    onClick={() => {
+                      setAccent("#DB2777");
+                      setBackground("#FDF2F8");
+                      setTextColor("#500724");
+                      setSaved(false);
+                    }}
+                  >
                     <i style={{ background: "#DB2777" }} /> Sakura
                   </button>
-                  <button onClick={() => { setAccent("#059669"); setBackground("#ECFDF5"); setTextColor("#064E3B"); setSaved(false); }}>
+
+                  <button
+                    onClick={() => {
+                      setAccent("#059669");
+                      setBackground("#ECFDF5");
+                      setTextColor("#064E3B");
+                      setSaved(false);
+                    }}
+                  >
                     <i style={{ background: "#059669" }} /> Natureza
                   </button>
                 </div>
@@ -514,30 +801,49 @@ export default function EditorPage() {
                   <h2>Entra no teu universo</h2>
                   <p>Escolhe como o wallpaper ocupa o teu espaço.</p>
                 </div>
+
                 <ImageIcon size={23} />
               </div>
 
               <div className="me-editor-wallpaper-options">
-                <button className={`me-editor-wallpaper-option ${wallpaper === "left" ? "selected" : ""}`} onClick={() => { setWallpaper("left"); setSaved(false); }}>
+                <button
+                  className={`me-editor-wallpaper-option ${wallpaper === "left" ? "selected" : ""}`}
+                  onClick={() => {
+                    setWallpaper("left");
+                    setSaved(false);
+                  }}
+                >
                   <div className="me-editor-wallpaper-demo left-demo">
                     <div /><span /><span />
                   </div>
+
                   <strong>Coluna esquerda</strong>
                   <small>Wallpaper lateral</small>
+
                   {wallpaper === "left" && <Check size={16} />}
                 </button>
-                <button className={`me-editor-wallpaper-option ${wallpaper === "full" ? "selected" : ""}`} onClick={() => { setWallpaper("full"); setSaved(false); }}>
+
+                <button
+                  className={`me-editor-wallpaper-option ${wallpaper === "full" ? "selected" : ""}`}
+                  onClick={() => {
+                    setWallpaper("full");
+                    setSaved(false);
+                  }}
+                >
                   <div className="me-editor-wallpaper-demo full-demo">
                     <div /><span /><span />
                   </div>
+
                   <strong>Ecrã completo</strong>
                   <small>Fundo envolvente</small>
+
                   {wallpaper === "full" && <Check size={16} />}
                 </button>
               </div>
 
               <div className="me-editor-wallpaper-note">
                 <ImageIcon size={18} />
+
                 <div>
                   <strong>Wallpaper personalizado</strong>
                   <p>O posicionamento já pode ser configurado. O envio de uma imagem de fundo será adicionado numa próxima etapa.</p>
@@ -554,23 +860,50 @@ export default function EditorPage() {
                   <h2>Organiza o teu espaço</h2>
                   <p>Ativa, desativa e muda a ordem dos widgets.</p>
                 </div>
+
                 <LayoutGrid size={23} />
               </div>
 
               <div className="me-editor-widget-list">
                 {widgets.map((widget, index) => (
-                  <div className={`me-editor-widget-row ${widget.enabled ? "" : "disabled"}`} key={widget.id}>
+                  <div
+                    className={`me-editor-widget-row ${widget.enabled ? "" : "disabled"}`}
+                    key={widget.id}
+                  >
                     <GripVertical size={17} className="me-editor-grip" />
-                    <div className="me-editor-widget-number">{String(index + 1).padStart(2, "0")}</div>
+
+                    <div className="me-editor-widget-number">
+                      {String(index + 1).padStart(2, "0")}
+                    </div>
+
                     <div className="me-editor-widget-name">
                       <strong>{widget.name}</strong>
                       <small>{widget.enabled ? "Visível no perfil" : "Oculto no perfil"}</small>
                     </div>
+
                     <div className="me-editor-widget-order">
-                      <button disabled={index === 0} onClick={() => moveWidget(index, -1)} aria-label={`Mover ${widget.name} para cima`}>↑</button>
-                      <button disabled={index === widgets.length - 1} onClick={() => moveWidget(index, 1)} aria-label={`Mover ${widget.name} para baixo`}>↓</button>
+                      <button
+                        disabled={index === 0}
+                        onClick={() => moveWidget(index, -1)}
+                        aria-label={`Mover ${widget.name} para cima`}
+                      >
+                        ↑
+                      </button>
+
+                      <button
+                        disabled={index === widgets.length - 1}
+                        onClick={() => moveWidget(index, 1)}
+                        aria-label={`Mover ${widget.name} para baixo`}
+                      >
+                        ↓
+                      </button>
                     </div>
-                    <button className={`me-editor-switch ${widget.enabled ? "on" : ""}`} onClick={() => updateWidget(widget.id, !widget.enabled)} aria-label={`${widget.enabled ? "Ocultar" : "Mostrar"} ${widget.name}`}>
+
+                    <button
+                      className={`me-editor-switch ${widget.enabled ? "on" : ""}`}
+                      onClick={() => updateWidget(widget.id, !widget.enabled)}
+                      aria-label={`${widget.enabled ? "Ocultar" : "Mostrar"} ${widget.name}`}
+                    >
                       <span />
                     </button>
                   </div>
@@ -591,6 +924,7 @@ export default function EditorPage() {
                   <h2>Os teus cantos da internet</h2>
                   <p>Adiciona as páginas onde as pessoas te encontram.</p>
                 </div>
+
                 <Link2 size={23} />
               </div>
 
@@ -598,19 +932,39 @@ export default function EditorPage() {
                 {links.map((link, index) => (
                   <div className="me-editor-link-card" key={link.id}>
                     <div className="me-editor-link-card-top">
-                      <span className="me-editor-link-number">{String(index + 1).padStart(2, "0")}</span>
+                      <span className="me-editor-link-number">
+                        {String(index + 1).padStart(2, "0")}
+                      </span>
+
                       <strong>Link personalizado</strong>
-                      <button onClick={() => removeLink(link.id)} aria-label="Remover link">
+
+                      <button
+                        onClick={() => removeLink(link.id)}
+                        aria-label="Remover link"
+                      >
                         <Trash2 size={15} />
                       </button>
                     </div>
+
                     <div className="me-editor-field">
                       <label>Título</label>
-                      <input value={link.title} onChange={(e) => updateLink(link.id, "title", e.target.value)} placeholder="Ex.: Instagram" />
+
+                      <input
+                        value={link.title}
+                        onChange={(e) => updateLink(link.id, "title", e.target.value)}
+                        placeholder="Ex.: Instagram"
+                      />
                     </div>
+
                     <div className="me-editor-field">
                       <label>URL</label>
-                      <input type="url" value={link.url} onChange={(e) => updateLink(link.id, "url", e.target.value)} placeholder="https://..." />
+
+                      <input
+                        type="url"
+                        value={link.url}
+                        onChange={(e) => updateLink(link.id, "url", e.target.value)}
+                        placeholder="https://..."
+                      />
                     </div>
                   </div>
                 ))}
@@ -626,7 +980,12 @@ export default function EditorPage() {
             <button className="me-editor-reset" onClick={resetProfile}>
               <RotateCcw size={15} /> Restaurar exemplo
             </button>
-            <button className="me-editor-save-large" onClick={saveProfile} disabled={savingProfile || loadingProfile}>
+
+            <button
+              className="me-editor-save-large"
+              onClick={saveProfile}
+              disabled={savingProfile || loadingProfile}
+            >
               {saved ? <Check size={16} /> : <Save size={16} />}
               {savingProfile ? "A guardar..." : saved ? "Alterações guardadas" : "Guardar alterações"}
             </button>
@@ -639,6 +998,7 @@ export default function EditorPage() {
               <span className="me-editor-kicker">LIVE PREVIEW</span>
               <h2>O teu perfil</h2>
             </div>
+
             <span className="me-editor-preview-status"><i /> AO VIVO</span>
           </div>
 
@@ -655,13 +1015,20 @@ export default function EditorPage() {
               <span className="me-editor-preview-art-mark">静 · MEEMU</span>
               <span className="me-editor-preview-art-number">01</span>
               <div className="me-editor-preview-orbit" />
-              <div className="me-editor-preview-art-title">STAY<br />UNCOMMON.</div>
+              <div className="me-editor-preview-art-title">
+                STAY<br />UNCOMMON.
+              </div>
             </div>
 
             <div className="me-editor-preview-content">
               <div className="me-editor-preview-avatar" style={{ background: accent }}>
-                {avatar ? <img src={avatar} alt="" /> : <span>{name.trim().charAt(0).toLowerCase() || "m"}</span>}
+                {avatar ? (
+                  <img src={avatar} alt="" />
+                ) : (
+                  <span>{name.trim().charAt(0).toLowerCase() || "m"}</span>
+                )}
               </div>
+
               <h3>{name || "Teu nome"}</h3>
               <p className="me-editor-preview-handle">@{username || "teuusername"}</p>
               <div className="me-editor-preview-title">{title || "O teu título"}</div>
@@ -680,7 +1047,11 @@ export default function EditorPage() {
               ))}
 
               {links.filter((link) => link.title.trim()).map((link) => (
-                <div className="me-editor-preview-link" key={link.id} style={{ borderColor: `${accent}40` }}>
+                <div
+                  className="me-editor-preview-link"
+                  key={link.id}
+                  style={{ borderColor: `${accent}40` }}
+                >
                   <Link2 size={13} style={{ color: accent }} />
                   <span>{link.title}</span>
                   <ChevronRight size={13} />
@@ -697,7 +1068,10 @@ export default function EditorPage() {
       </div>
 
       <footer className="me-editor-footer">
-        <a href="/"><ArrowLeft size={14} /> Voltar ao perfil</a>
+        <a href="/">
+          <ArrowLeft size={14} /> Voltar ao perfil
+        </a>
+
         <span>FEITO À TUA MANEIRA <span>✳</span></span>
         <span>MEEMU © 2026</span>
       </footer>
