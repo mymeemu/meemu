@@ -28,6 +28,8 @@ export default function HomePage() {
   const [username, setUsername] = useState("");
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
+  const [showVerification, setShowVerification] = useState(false);
+  const [otp, setOtp] = useState("");
   
   async function handlePasswordReset() {
     if (busy) return;
@@ -68,6 +70,81 @@ export default function HomePage() {
       setBusy(false);
     }
   }
+  async function handleVerifyOtp(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (busy) return;
+
+    const cleanOtp = otp.trim();
+    if (!/^\d{6}$/.test(cleanOtp)) {
+      setMessage("Digite o código de 6 números recebido por e-mail.");
+      return;
+    }
+    if (!supabase) {
+      setMessage("O serviço de autenticação está indisponível. Tente novamente.");
+      return;
+    }
+
+    setBusy(true);
+    setMessage("");
+    try {
+      const { error } = await supabase.auth.verifyOtp({
+        email: email.trim(),
+        token: cleanOtp,
+        type: "signup",
+      });
+
+      if (error) {
+        console.error("[MEEMU email verification]", {
+          message: error.message,
+          status: error.status,
+          code: error.code,
+        });
+        setMessage("Não foi possível confirmar o código. Confira os números ou solicite outro código.");
+        return;
+      }
+
+      router.push("/editor");
+      router.refresh();
+    } catch (error) {
+      console.error("[MEEMU email verification]", error);
+      setMessage("Ocorreu um problema ao confirmar o e-mail. Tente novamente.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleResendOtp() {
+    if (busy) return;
+    if (!supabase) {
+      setMessage("O serviço de autenticação está indisponível. Tente novamente.");
+      return;
+    }
+
+    setBusy(true);
+    setMessage("");
+    try {
+      const { error } = await supabase.auth.resend({
+        type: "signup",
+        email: email.trim(),
+      });
+      if (error) {
+        console.error("[MEEMU resend verification]", {
+          message: error.message,
+          status: error.status,
+          code: error.code,
+        });
+        setMessage(`Não foi possível reenviar o código: ${error.message}`);
+      } else {
+        setMessage("Solicitamos um novo código. Verifique sua caixa de entrada e o spam.");
+      }
+    } catch (error) {
+      console.error("[MEEMU resend verification]", error);
+      setMessage("Não foi possível reenviar o código. Tente novamente.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
@@ -123,9 +200,9 @@ export default function HomePage() {
           return;
         }
 
-        setMessage(
-          "Conta criada! Verifique a sua caixa de email e confirme o endereço antes de entrar."
-        );
+        setShowVerification(true);
+        setOtp("");
+        setMessage("Enviamos um código de 6 dígitos para o seu e-mail. Digite-o abaixo para confirmar sua conta.");
         return;
       }
 
@@ -144,9 +221,8 @@ export default function HomePage() {
         const errorText = error.message.toLowerCase();
 
         if (errorText.includes("email not confirmed")) {
-          setMessage(
-            "Confirme o seu email antes de entrar. Verifique a sua caixa de entrada."
-          );
+          setShowVerification(true);
+          setMessage("Seu e-mail ainda precisa ser confirmado. Solicite um código para continuar.");
         } else if (errorText.includes("invalid login credentials")) {
           setMessage(
             "Email ou senha incorretos. Verifique os dados ou recupere a sua senha."
@@ -170,6 +246,8 @@ export default function HomePage() {
       setBusy(false);
     }
   }
+
+  return (
     <main className="home-page">
       <nav className="home-nav">
         <a className="home-brand" href="/" aria-label="MEEMU início">
@@ -381,7 +459,7 @@ export default function HomePage() {
         </div>
 
         <div className="home-auth-card">
-          <div className="auth-tabs">
+          {!showVerification && <div className="auth-tabs">
             <button
               className={mode === "signup" ? "active" : ""}
               onClick={() => {
@@ -405,21 +483,71 @@ export default function HomePage() {
             >
               Entrar
             </button>
-          </div>
+          </div>}
 
           <div className="auth-heading">
             <h3>
-              {mode === "signup"
-                ? "Crie seu MEEMU ✨"
-                : "Que bom ter você de volta!"}
+              {showVerification
+                ? "Confirme seu e-mail ✉️"
+                : mode === "signup"
+                  ? "Crie seu MEEMU ✨"
+                  : "Que bom ter você de volta!"}
             </h3>
             <p>
-              {mode === "signup"
-                ? "Seu espaço pessoal começa aqui."
-                : "Entre para continuar de onde parou."}
+              {showVerification
+                ? `Digite o código de 6 dígitos enviado para ${email.trim()}.`
+                : mode === "signup"
+                  ? "Seu espaço pessoal começa aqui."
+                  : "Entre para continuar de onde parou."}
             </p>
           </div>
 
+          {showVerification ? (
+            <form className="home-auth-form" onSubmit={handleVerifyOtp}>
+              <label>
+                Código de verificação
+                <span className="auth-input-wrap">
+                  <LockKeyhole size={17} />
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    autoComplete="one-time-code"
+                    value={otp}
+                    onChange={(event) => setOtp(event.target.value.replace(/\D/g, "").slice(0, 6))}
+                    placeholder="000000"
+                    maxLength={6}
+                    pattern="[0-9]{6}"
+                    required
+                    disabled={busy}
+                    aria-label="Código de verificação de seis dígitos"
+                  />
+                </span>
+              </label>
+
+              <button className="auth-submit" type="submit" disabled={busy || otp.length !== 6}>
+                {busy ? "Verificando..." : "Confirmar e continuar"}
+                {!busy && <ArrowRight size={17} />}
+              </button>
+
+              <button
+                type="button"
+                onClick={handleResendOtp}
+                disabled={busy}
+                style={{ display: "block", width: "100%", margin: "12px 0 4px", padding: "8px 0", border: "none", background: "transparent", color: "#7c6ee6", fontSize: "13px", fontWeight: 600, cursor: busy ? "wait" : "pointer" }}
+              >
+                Reenviar código
+              </button>
+              <button
+                type="button"
+                onClick={() => { setShowVerification(false); setOtp(""); setMessage(""); setMode("signup"); }}
+                disabled={busy}
+                style={{ display: "block", width: "100%", padding: "8px 0", border: "none", background: "transparent", color: "#777", fontSize: "13px", cursor: busy ? "wait" : "pointer" }}
+              >
+                Voltar
+              </button>
+              {message && <p className="auth-message" role="status" aria-live="polite">{message}</p>}
+            </form>
+          ) : (
           <form className="home-auth-form" onSubmit={handleSubmit}>
             {mode === "signup" && (
               <label>
@@ -513,6 +641,7 @@ export default function HomePage() {
               </p>
             )}
           </form>
+          )}
 
           <p className="auth-terms">
             Ao continuar, você concorda em usar o MEEMU com respeito e
