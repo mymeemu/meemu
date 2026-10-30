@@ -3,7 +3,8 @@
 
 import "./editor.css";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { supabase } from "@/lib/supabase";
 import {
   ArrowLeft,
   Check,
@@ -62,6 +63,87 @@ export default function EditorPage() {
     { id: 2, title: "O meu site", url: "https://" },
   ]);
   const [saved, setSaved] = useState(false);
+  const [loadingProfile, setLoadingProfile] = useState(true);
+  const [savingProfile, setSavingProfile] = useState(false);
+  const [statusMessage, setStatusMessage] = useState("");
+  const [statusError, setStatusError] = useState(false);
+  const [profileId, setProfileId] = useState<string | null>(null);
+  const [storedAvatarUrl, setStoredAvatarUrl] = useState<string | null>(null);
+  const [storedWallpaperUrl, setStoredWallpaperUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadProfile() {
+      if (!supabase) {
+        setStatusMessage("Não foi possível ligar ao Supabase. Verifica as variáveis de ambiente.");
+        setStatusError(true);
+        setLoadingProfile(false);
+        return;
+      }
+
+      try {
+        const { data: authData, error: authError } = await supabase.auth.getUser();
+        if (authError) throw authError;
+        const user = authData.user;
+        if (!user) {
+          window.location.href = "/";
+          return;
+        }
+
+        if (cancelled) return;
+        setProfileId(user.id);
+
+        const { data: profile, error } = await supabase
+          .from("profiles")
+          .select("id, username, display_name, bio, avatar_url, wallpaper_url, wallpaper_mode, theme, widgets, links")
+          .eq("id", user.id)
+          .maybeSingle();
+
+        if (error) throw error;
+        if (cancelled) return;
+
+        if (profile) {
+          const theme = profile.theme && typeof profile.theme === "object" ? profile.theme as Record<string, unknown> : {};
+          setName(profile.display_name || "");
+          setUsername(profile.username || "");
+          setBio(profile.bio || "");
+          setTitle(typeof theme.title === "string" ? theme.title : "O teu mundo. As tuas regras.");
+          setAvatar(profile.avatar_url || "");
+          setStoredAvatarUrl(profile.avatar_url || null);
+          setStoredWallpaperUrl(profile.wallpaper_url || null);
+          setWallpaper(profile.wallpaper_mode === "full" ? "full" : "left");
+          setBackground(typeof theme.background === "string" ? theme.background : "#F5F3FF");
+          setAccent(typeof theme.accent === "string" ? theme.accent : "#7C3AED");
+          setTextColor(typeof theme.textColor === "string" ? theme.textColor : "#29243B");
+          setRadius(typeof theme.radius === "number" ? Math.min(36, Math.max(8, theme.radius)) : 22);
+          if (Array.isArray(profile.widgets)) {
+            const loadedWidgets = profile.widgets.filter((item: unknown) => item && typeof item === "object" && "id" in item && "name" in item && "enabled" in item) as WidgetItem[];
+            if (loadedWidgets.length) setWidgets(loadedWidgets);
+          }
+          if (Array.isArray(profile.links)) {
+            const loadedLinks = profile.links.filter((item: unknown) => item && typeof item === "object" && "title" in item && "url" in item).map((item: any, index: number) => ({
+              id: typeof item.id === "number" ? item.id : Date.now() + index,
+              title: String(item.title ?? ""),
+              url: String(item.url ?? ""),
+            }));
+            setLinks(loadedLinks);
+          }
+        }
+      } catch (error) {
+        console.error("Erro ao carregar perfil MEEMU:", error);
+        if (!cancelled) {
+          setStatusMessage(error instanceof Error ? `Não foi possível carregar o perfil: ${error.message}` : "Não foi possível carregar o perfil.");
+          setStatusError(true);
+        }
+      } finally {
+        if (!cancelled) setLoadingProfile(false);
+      }
+    }
+
+    void loadProfile();
+    return () => { cancelled = true; };
+  }, []);
 
   function updateWidget(id: string, enabled: boolean) {
     setWidgets((current) =>
@@ -105,27 +187,56 @@ export default function EditorPage() {
     setSaved(false);
   }
 
-  function saveProfile() {
-    const data = {
-      name,
-      username,
-      title,
-      bio,
-      avatar,
-      wallpaper,
-      background,
-      accent,
-      textColor,
-      radius,
-      widgets,
-      links,
-    };
+  async function saveProfile() {
+    if (!supabase) {
+      setStatusMessage("Não foi possível ligar ao Supabase. Verifica as variáveis de ambiente.");
+      setStatusError(true);
+      return;
+    }
+    if (!profileId) {
+      setStatusMessage("Não encontrámos a tua sessão. Sai e entra novamente na tua conta.");
+      setStatusError(true);
+      return;
+    }
+
+    setSavingProfile(true);
+    setSaved(false);
+    setStatusMessage("");
+    setStatusError(false);
 
     try {
-      localStorage.setItem("meemu-profile-draft", JSON.stringify(data));
+      const avatarUrlToSave = avatar.startsWith("data:") ? storedAvatarUrl : (avatar || null);
+      const payload = {
+        id: profileId,
+        username: username.trim() || null,
+        display_name: name.trim() || "Teu nome",
+        bio: bio.trim(),
+        avatar_url: avatarUrlToSave,
+        wallpaper_url: storedWallpaperUrl,
+        wallpaper_mode: wallpaper,
+        theme: { title, background, accent, textColor, radius },
+        widgets,
+        links,
+        updated_at: new Date().toISOString(),
+      };
+
+      const { error } = await supabase.from("profiles").upsert(payload, { onConflict: "id" });
+      if (error) throw error;
+
+      setStoredAvatarUrl(avatarUrlToSave);
       setSaved(true);
-    } catch {
-      setSaved(false);
+      if (avatar.startsWith("data:")) {
+        setStatusMessage("Perfil guardado. A nova foto ainda não foi enviada para o armazenamento; vamos configurar isso a seguir.");
+      } else {
+        setStatusMessage("As alterações foram guardadas no Supabase.");
+      }
+      setStatusError(false);
+    } catch (error) {
+      console.error("Erro ao guardar perfil MEEMU:", error);
+      setStatusMessage(error instanceof Error ? `Não foi possível guardar: ${error.message}` : "Não foi possível guardar as alterações.");
+      setStatusError(true);
+    } finally {
+      setSavingProfile(false);
     }
   }
 
@@ -146,6 +257,8 @@ export default function EditorPage() {
       { id: 2, title: "O meu site", url: "https://" },
     ]);
     setSaved(false);
+    setStatusMessage("Exemplo restaurado apenas nesta pré-visualização. Clica em Guardar alterações para gravar no banco. ");
+    setStatusError(false);
   }
 
   function uploadAvatar(file?: File) {
@@ -192,9 +305,9 @@ export default function EditorPage() {
           <a className="me-editor-view" href="/" target="_blank" rel="noreferrer">
             <Eye size={16} /> Ver perfil
           </a>
-          <button className="me-editor-save" onClick={saveProfile}>
+          <button className="me-editor-save" onClick={saveProfile} disabled={savingProfile || loadingProfile}>
             {saved ? <Check size={16} /> : <Save size={16} />}
-            {saved ? "Guardado" : "Guardar"}
+            {savingProfile ? "A guardar..." : saved ? "Guardado" : "Guardar"}
           </button>
         </div>
       </header>
@@ -243,6 +356,11 @@ export default function EditorPage() {
         </aside>
 
         <section className="me-editor-controls">
+          {(loadingProfile || statusMessage) && (
+            <div role="status" style={{ margin: "0 0 16px", padding: "12px 14px", borderRadius: 12, background: statusError ? "#FEE2E2" : "#EEF2FF", color: statusError ? "#991B1B" : "#3730A3", fontSize: 13 }}>
+              {loadingProfile ? "A carregar o teu perfil..." : statusMessage}
+            </div>
+          )}
           {section === "perfil" && (
             <div className="me-editor-section">
               <div className="me-editor-section-heading">
@@ -508,9 +626,9 @@ export default function EditorPage() {
             <button className="me-editor-reset" onClick={resetProfile}>
               <RotateCcw size={15} /> Restaurar exemplo
             </button>
-            <button className="me-editor-save-large" onClick={saveProfile}>
+            <button className="me-editor-save-large" onClick={saveProfile} disabled={savingProfile || loadingProfile}>
               {saved ? <Check size={16} /> : <Save size={16} />}
-              {saved ? "Alterações guardadas" : "Guardar alterações"}
+              {savingProfile ? "A guardar..." : saved ? "Alterações guardadas" : "Guardar alterações"}
             </button>
           </div>
         </section>
