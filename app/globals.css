@@ -1937,6 +1937,49 @@ textarea:focus-visible {
   }
 }
 /* ==========================================
+   MEEMU — ORGANIZAÇÃO DO PERFIL
+========================================== */
+
+/* Perfil à esquerda e widgets à direita */
+
+.workspace.profile-layout-profile-left {
+  grid-template-columns: minmax(290px, 0.82fr) minmax(0, 1.18fr);
+}
+
+.workspace.profile-layout-profile-left .identity-panel {
+  order: 1;
+}
+
+.workspace.profile-layout-profile-left .widgets-area {
+  order: 2;
+}
+
+/* Widgets à esquerda e perfil à direita */
+
+.workspace.profile-layout-widgets-left,
+.wallpaper-full .workspace.profile-layout-widgets-left {
+  grid-template-columns: minmax(0, 1.18fr) minmax(290px, 0.82fr);
+}
+
+.workspace.profile-layout-widgets-left .widgets-area {
+  order: 1;
+}
+
+.workspace.profile-layout-widgets-left .identity-panel {
+  order: 2;
+}
+
+/* Em telas menores, mantém as duas opções sem sobrepor colunas */
+
+@media (max-width: 850px) {
+  .workspace.profile-layout-profile-left,
+  .workspace.profile-layout-widgets-left,
+  .wallpaper-full .workspace.profile-layout-profile-left,
+  .wallpaper-full .workspace.profile-layout-widgets-left {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+/* ==========================================
    MEEMU — PERSONALIZAÇÃO DOS WIDGETS
 ========================================== */
 
