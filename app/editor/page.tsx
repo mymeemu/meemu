@@ -24,7 +24,7 @@ import {
 } from "lucide-react";
 
 type Section = "perfil" | "aparencia" | "wallpaper" | "widgets" | "links";
-
+type ProfileLayout = "profile-left" | "widgets-left";
 type ProfileLink = {
   id: number;
   title: string;
@@ -56,6 +56,7 @@ export default function EditorPage() {
   const [accent, setAccent] = useState("#7C3AED");
   const [textColor, setTextColor] = useState("#29243B");
   const [radius, setRadius] = useState(22);
+  const [profileLayout, setProfileLayout] = useState<ProfileLayout>("profile-left");
   const [widgets, setWidgets] = useState(initialWidgets);
   const [links, setLinks] = useState<ProfileLink[]>([
     { id: 1, title: "Instagram", url: "https://instagram.com/" },
@@ -124,7 +125,8 @@ export default function EditorPage() {
           setAccent(typeof theme.accent === "string" ? theme.accent : "#7C3AED");
           setTextColor(typeof theme.textColor === "string" ? theme.textColor : "#29243B");
           setRadius(typeof theme.radius === "number" ? Math.min(36, Math.max(8, theme.radius)) : 22);
-
+          setProfileLayout( theme.layout === "widgets-left" ? "widgets-left" : "profile-left"
+);
           if (Array.isArray(profile.widgets)) {
             const loadedWidgets = profile.widgets.filter(
               (item: unknown) =>
@@ -340,7 +342,14 @@ export default function EditorPage() {
         avatar_url: avatarUrlToSave,
         wallpaper_url: wallpaperUrlToSave,
         wallpaper_mode: wallpaper,
-        theme: { title, background, accent, textColor, radius },
+        theme: {
+  title,
+  background,
+  accent,
+  textColor,
+  radius,
+  layout: profileLayout,
+},
         widgets,
         links,
         updated_at: new Date().toISOString(),
@@ -393,7 +402,7 @@ export default function EditorPage() {
     setTextColor("#29243B");
     setRadius(22);
     setWidgets(initialWidgets);
-
+    setProfileLayout("profile-left");
     setLinks([
       { id: 1, title: "Instagram", url: "https://instagram.com/" },
       { id: 2, title: "O meu site", url: "https://" },
@@ -997,7 +1006,123 @@ export default function EditorPage() {
 
                 <LayoutGrid size={23} />
               </div>
+<div className="me-editor-field" style={{ marginBottom: 28 }}>
+  <label>Organização do perfil</label>
 
+  <p style={{ margin: "6px 0 14px", fontSize: 13, color: "#85859A" }}>
+    Escolhe de que lado ficará a tua identidade e de que lado ficarão os widgets.
+  </p>
+
+  <div
+    style={{
+      display: "grid",
+      gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+      gap: 12,
+    }}
+  >
+    <button
+      type="button"
+      aria-pressed={profileLayout === "profile-left"}
+      onClick={() => {
+        setProfileLayout("profile-left");
+        setSaved(false);
+      }}
+      style={{
+        padding: 12,
+        borderRadius: 14,
+        border: profileLayout === "profile-left"
+          ? "2px solid #7C3AED"
+          : "1px solid #E5E5EF",
+        background: profileLayout === "profile-left" ? "#F5F3FF" : "#FFFFFF",
+        cursor: "pointer",
+        textAlign: "left",
+        color: "#29243B",
+      }}
+    >
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "0.8fr 1.2fr",
+          gap: 5,
+          height: 76,
+          marginBottom: 12,
+        }}
+      >
+        <div style={{ background: "#C4B5FD", borderRadius: 7 }} />
+        <div style={{ display: "grid", gap: 5 }}>
+          <div style={{ background: "#DDD6FE", borderRadius: 5 }} />
+          <div style={{ background: "#DDD6FE", borderRadius: 5 }} />
+          <div style={{ background: "#DDD6FE", borderRadius: 5 }} />
+        </div>
+      </div>
+
+      <strong style={{ display: "block", fontSize: 13 }}>
+        Identidade à esquerda
+      </strong>
+
+      <small style={{ color: "#85859A", fontSize: 11 }}>
+        Perfil ← · Widgets →
+      </small>
+
+      {profileLayout === "profile-left" && (
+        <span style={{ display: "block", marginTop: 8, color: "#7C3AED", fontSize: 11 }}>
+          ✓ Selecionado
+        </span>
+      )}
+    </button>
+
+    <button
+      type="button"
+      aria-pressed={profileLayout === "widgets-left"}
+      onClick={() => {
+        setProfileLayout("widgets-left");
+        setSaved(false);
+      }}
+      style={{
+        padding: 12,
+        borderRadius: 14,
+        border: profileLayout === "widgets-left"
+          ? "2px solid #7C3AED"
+          : "1px solid #E5E5EF",
+        background: profileLayout === "widgets-left" ? "#F5F3FF" : "#FFFFFF",
+        cursor: "pointer",
+        textAlign: "left",
+        color: "#29243B",
+      }}
+    >
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "1.2fr 0.8fr",
+          gap: 5,
+          height: 76,
+          marginBottom: 12,
+        }}
+      >
+        <div style={{ display: "grid", gap: 5 }}>
+          <div style={{ background: "#DDD6FE", borderRadius: 5 }} />
+          <div style={{ background: "#DDD6FE", borderRadius: 5 }} />
+          <div style={{ background: "#DDD6FE", borderRadius: 5 }} />
+        </div>
+        <div style={{ background: "#C4B5FD", borderRadius: 7 }} />
+      </div>
+
+      <strong style={{ display: "block", fontSize: 13 }}>
+        Identidade à direita
+      </strong>
+
+      <small style={{ color: "#85859A", fontSize: 11 }}>
+        Widgets ← · Perfil →
+      </small>
+
+      {profileLayout === "widgets-left" && (
+        <span style={{ display: "block", marginTop: 8, color: "#7C3AED", fontSize: 11 }}>
+          ✓ Selecionado
+        </span>
+      )}
+    </button>
+  </div>
+</div>
               <div className="me-editor-widget-list">
                 {widgets.map((widget, index) => (
                   <div
