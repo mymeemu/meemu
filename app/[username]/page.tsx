@@ -3,6 +3,7 @@
 
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
+import type { CSSProperties } from "react";
 import { supabase } from "@/lib/supabase";
 import {
   Music2,
@@ -11,6 +12,7 @@ import {
   Quote,
   ExternalLink,
   ArrowLeft,
+  Image as ImageIcon,
 } from "lucide-react";
 
 type WidgetItem = {
@@ -25,6 +27,14 @@ type ProfileLink = {
   url: string;
 };
 
+type ProfileTheme = {
+  title?: string;
+  background?: string;
+  accent?: string;
+  textColor?: string;
+  radius?: number;
+};
+
 type ProfileData = {
   id: string;
   username: string | null;
@@ -33,18 +43,12 @@ type ProfileData = {
   avatar_url: string | null;
   wallpaper_url: string | null;
   wallpaper_mode: string | null;
-  theme: {
-    title?: string;
-    background?: string;
-    accent?: string;
-    textColor?: string;
-    radius?: number;
-  } | null;
+  theme: ProfileTheme | null;
   widgets: WidgetItem[] | null;
   links: ProfileLink[] | null;
 };
 
-const defaultTheme = {
+const defaultTheme: Required<ProfileTheme> = {
   title: "O teu mundo. As tuas regras.",
   background: "#F5F3FF",
   accent: "#7C3AED",
@@ -96,12 +100,13 @@ export default function PublicProfilePage() {
           .maybeSingle();
 
         if (error) throw error;
-
         if (cancelled) return;
 
         if (!data) {
-          setErrorMessage("Este perfil não existe ou ainda não foi publicado.");
           setProfile(null);
+          setErrorMessage(
+            "Este perfil não existe ou ainda não foi publicado."
+          );
         } else {
           setProfile(data as ProfileData);
         }
@@ -109,7 +114,9 @@ export default function PublicProfilePage() {
         console.error("Erro ao carregar perfil público MEEMU:", error);
 
         if (!cancelled) {
-          setErrorMessage("Não foi possível carregar este perfil. Tenta novamente.");
+          setErrorMessage(
+            "Não foi possível carregar este perfil. Tenta novamente."
+          );
         }
       } finally {
         if (!cancelled) setLoading(false);
@@ -137,11 +144,12 @@ export default function PublicProfilePage() {
     return (
       <main className="site-shell">
         <div className="workspace">
-          <div className="profile-widget">
+          <div className="public-profile-message">
             <h1>Perfil indisponível</h1>
             <p>{errorMessage || "Não encontrámos este perfil."}</p>
             <a href="/">
-              <ArrowLeft size={16} /> Voltar ao MEEMU
+              <ArrowLeft size={16} />
+              Voltar ao MEEMU
             </a>
           </div>
         </div>
@@ -154,8 +162,16 @@ export default function PublicProfilePage() {
     ...(profile.theme || {}),
   };
 
+  const radius = Math.min(36, Math.max(8, Number(theme.radius) || 22));
+
   const enabledWidgets = Array.isArray(profile.widgets)
-    ? profile.widgets.filter((widget) => widget && widget.enabled)
+    ? profile.widgets.filter(
+        (widget) =>
+          widget &&
+          typeof widget.id === "string" &&
+          typeof widget.name === "string" &&
+          widget.enabled
+      )
     : [];
 
   const links = Array.isArray(profile.links)
@@ -171,162 +187,221 @@ export default function PublicProfilePage() {
 
   const fullWallpaper = profile.wallpaper_mode === "full";
 
+  const pageStyle = {
+    "--accent": theme.accent,
+    "--primary": theme.accent,
+    "--foreground": theme.textColor,
+    "--profile-radius": `${radius}px`,
+  } as CSSProperties;
+
+  const identityStyle = {
+    borderRadius: `${radius}px`,
+  };
+
+  const avatarLetter = (
+    profile.display_name || profile.username || "m"
+  ).charAt(0).toLowerCase();
+
   return (
     <main
       className={`site-shell ${fullWallpaper ? "wallpaper-full" : ""}`}
-      style={
-        {
-          "--profile-background": theme.background,
-          "--profile-accent": theme.accent,
-          "--profile-text": theme.textColor,
-          "--profile-radius": `${theme.radius}px`,
-        } as React.CSSProperties
-      }
+      style={pageStyle}
     >
       <header className="topbar">
         <a className="brand" href="/" aria-label="MEEMU">
           <span className="brand-mark">m.</span>
-          <span>meemu<span>.</span></span>
+          <span>
+            meemu<span className="brand-dot">.</span>
+          </span>
         </a>
 
-        <div className="topbar-actions">
-          <span className="profile-public-label">
-            <span /> PERFIL PÚBLICO
-          </span>
+        <div className="topbar-center">
+          <span className="live-dot" />
+          PERFIL PÚBLICO
         </div>
+
+        <a className="top-action" href="/">
+          <ArrowLeft size={15} />
+          MEEMU
+        </a>
       </header>
 
       <section className="workspace">
-        <div
-          className={`identity-panel ${fullWallpaper ? "wallpaper-full" : ""}`}
-          style={{
-            backgroundColor: theme.background,
-            color: theme.textColor,
-            borderRadius: theme.radius,
-          }}
-        >
-          {profile.wallpaper_url && (
-            <div
-              className="wallpaper-art"
-              style={{
-                backgroundImage: `url("${profile.wallpaper_url}")`,
-                backgroundSize: "cover",
-                backgroundPosition: "center",
-              }}
-            />
-          )}
+        <aside className="identity-panel" style={identityStyle}>
+          <div
+            className="wallpaper-art"
+            style={
+              profile.wallpaper_url
+                ? {
+                    backgroundImage: `url("${profile.wallpaper_url}")`,
+                    backgroundSize: "cover",
+                    backgroundPosition: "center",
+                  }
+                : undefined
+            }
+          >
+            <div className="art-grain" />
+            <span className="art-number">01 / MEEMU</span>
+            <span className="art-vertical">YOUR LITTLE UNIVERSE</span>
+            <div className="art-orbit" />
+            <div className="art-silhouette">
+              <div className="silhouette-head" />
+              <div className="silhouette-body" />
+            </div>
+            <div className="art-caption">MY<br />WORLD.</div>
+            <div className="art-bottom-line" />
+          </div>
 
           <div className="identity-overlay">
-            <span className="identity-mark">静 · MEEMU</span>
-            <span className="identity-number">01</span>
-          </div>
-
-          <div className="identity-content">
-            <div
-              className="identity-avatar"
-              style={{ backgroundColor: theme.accent }}
-            >
-              {profile.avatar_url ? (
-                <img
-                  src={profile.avatar_url}
-                  alt={`Foto de ${profile.display_name || profile.username}`}
-                />
-              ) : (
-                <span>
-                  {(profile.display_name || profile.username || "m")
-                    .charAt(0)
-                    .toLowerCase()}
-                </span>
-              )}
+            <div className="eyebrow">
+              <span />
+              <span className="eyebrow-line" />
+              静 · MEEMU
             </div>
 
-            <div className="identity-details">
-              <h1>{profile.display_name || "Utilizador MEEMU"}</h1>
+            <div className="identity-copy">
+              <div className="public-avatar">
+                {profile.avatar_url ? (
+                  <img
+                    src={profile.avatar_url}
+                    alt={`Foto de ${profile.display_name || profile.username}`}
+                  />
+                ) : (
+                  <span>{avatarLetter}</span>
+                )}
+              </div>
 
-              <p className="identity-handle">
-                @{profile.username}
-              </p>
+              <p className="handle">@{profile.username}</p>
 
-              <h2>{theme.title}</h2>
+              <h1>
+                {profile.display_name || "Utilizador MEEMU"}
+              </h1>
+
+              <h2 className="public-profile-title">
+                {theme.title}
+              </h2>
 
               {profile.bio && (
-                <p className="identity-bio">{profile.bio}</p>
+                <p className="public-profile-bio">{profile.bio}</p>
               )}
             </div>
+
+            <div className="identity-footer">
+              <span>
+                <span className="tiny-dot" />
+                UM UNIVERSO SÓ TEU
+              </span>
+              <span>MEEMU ✳</span>
+            </div>
           </div>
-        </div>
+        </aside>
 
         <section className="widgets-area">
+          <div className="profile-heading">
+            <div>
+              <div className="section-kicker">
+                PROFILE <span>✳</span>
+              </div>
+              <h2>
+                O meu <span>universo.</span>
+              </h2>
+              <p>Um espaço que representa quem sou.</p>
+            </div>
+          </div>
+
           <div className="widget-grid">
-            {enabledWidgets.map((widget) => {
+            {enabledWidgets.map((widget, index) => {
               const Icon = widgetIcons[widget.id] || Share2;
 
               return (
                 <article
-                  className={`profile-widget ${widget.id}-widget`}
+                  className={`widget ${widget.id}-widget`}
                   key={widget.id}
-                  style={{
-                    backgroundColor: theme.background,
-                    color: theme.textColor,
-                    borderRadius: theme.radius,
-                  }}
+                  style={{ borderRadius: `${radius}px` }}
                 >
-                  <div className="profile-widget-heading">
-                    <span
-                      className="profile-widget-icon"
-                      style={{ color: theme.accent }}
-                    >
-                      <Icon size={19} />
+                  <div className="widget-top">
+                    <span className="widget-label">
+                      <Icon size={15} />
+                      {widget.name}
                     </span>
-
-                    <h3>{widget.name}</h3>
+                    <span className="widget-index">
+                      {String(index + 1).padStart(2, "0")}
+                    </span>
                   </div>
 
-                  <p className="profile-widget-placeholder">
-                    Este espaço faz parte do universo de {profile.display_name || profile.username}.
-                  </p>
+                  {widget.id === "music" && (
+                    <div className="public-empty-widget">
+                      <div className="album-art">
+                        <Music2 size={30} />
+                        <span>MEEMU<br />MUSIC</span>
+                      </div>
+                      <div className="track-info">
+                        <h3>Nenhuma música adicionada</h3>
+                        <p>O espaço musical deste perfil.</p>
+                      </div>
+                    </div>
+                  )}
+
+                  {widget.id === "socials" && (
+                    links.length > 0 ? (
+                      <div className="social-grid">
+                        {links.map((link) => (
+                          <a
+                            key={link.id}
+                            href={link.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                          >
+                            <Share2 size={15} />
+                            <span>{link.title}</span>
+                            <ExternalLink size={12} />
+                          </a>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="public-widget-empty">
+                        Ainda não foram adicionadas redes sociais.
+                      </p>
+                    )
+                  )}
+
+                  {widget.id === "gallery" && (
+                    <div className="public-gallery-empty">
+                      <ImageIcon size={27} />
+                      <p>A galeria ainda não tem fotografias.</p>
+                    </div>
+                  )}
+
+                  {widget.id === "quote" && (
+                    <div className="public-quote-empty">
+                      <Quote size={25} />
+                      <p>Um espaço para uma frase que te represente.</p>
+                    </div>
+                  )}
+
+                  {!["music", "socials", "gallery", "quote"].includes(
+                    widget.id
+                  ) && (
+                    <p className="public-widget-empty">
+                      Este widget ainda não tem conteúdo.
+                    </p>
+                  )}
                 </article>
               );
             })}
-
-            {links.length > 0 && (
-              <article
-                className="profile-widget socials-widget"
-                style={{
-                  backgroundColor: theme.background,
-                  color: theme.textColor,
-                  borderRadius: theme.radius,
-                }}
-              >
-                <div className="profile-widget-heading">
-                  <Share2 size={19} style={{ color: theme.accent }} />
-                  <h3>Encontra-me na internet</h3>
-                </div>
-
-                <div className="social-links">
-                  {links.map((link) => (
-                    <a
-                      key={link.id}
-                      href={link.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="social-link"
-                      style={{ borderColor: `${theme.accent}40` }}
-                    >
-                      <span>{link.title}</span>
-                      <ExternalLink size={14} />
-                    </a>
-                  ))}
-                </div>
-              </article>
-            )}
           </div>
-        </section>
 
-        <footer className="workspace-footer">
-          <span>FEITO À TUA MANEIRA ✳</span>
-          <span>MEEMU © 2026</span>
-        </footer>
+          <footer className="workspace-footer">
+            <span>
+              <span className="tiny-dot" />
+              FEITO À TUA MANEIRA
+            </span>
+            <span>
+              MEEMU <span className="footer-star">✳</span>
+            </span>
+            <span>© 2026</span>
+          </footer>
+        </section>
       </section>
     </main>
   );
