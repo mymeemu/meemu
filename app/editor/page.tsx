@@ -403,7 +403,47 @@ export default function EditorPage() {
 
     reader.readAsDataURL(file);
   }
+  function uploadWallpaper(file?: File) {
+    if (!file) return;
 
+    const allowedTypes = [
+      "image/jpeg",
+      "image/png",
+      "image/webp",
+      "image/gif",
+    ];
+
+    if (!allowedTypes.includes(file.type)) {
+      setStatusMessage("Formato inválido. Escolhe JPG, PNG, WebP ou GIF.");
+      setStatusError(true);
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      setStatusMessage("O wallpaper deve ter no máximo 5 MB.");
+      setStatusError(true);
+      return;
+    }
+
+    const reader = new FileReader();
+
+    reader.onload = () => {
+      if (typeof reader.result === "string") {
+        setWallpaperImage(reader.result);
+        setPendingWallpaperFile(file);
+        setSaved(false);
+        setStatusMessage("Wallpaper selecionado! Clica em Guardar para enviar ao MEEMU.");
+        setStatusError(false);
+      }
+    };
+
+    reader.onerror = () => {
+      setStatusMessage("Não foi possível ler o wallpaper selecionado.");
+      setStatusError(true);
+    };
+
+    reader.readAsDataURL(file);
+  }
   const sections: {
     id: Section;
     label: string;
