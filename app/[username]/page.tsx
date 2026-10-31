@@ -33,6 +33,7 @@ type ProfileTheme = {
   accent?: string;
   textColor?: string;
   radius?: number;
+  layout?: "profile-left" | "widgets-left";
 };
 
 type ProfileData = {
@@ -187,13 +188,17 @@ export default function PublicProfilePage() {
 
   const fullWallpaper = profile.wallpaper_mode === "full";
 
-  const pageStyle = {
-    "--accent": theme.accent,
-    "--primary": theme.accent,
-    "--foreground": theme.textColor,
-    "--profile-radius": `${radius}px`,
-  } as CSSProperties;
-
+const pageStyle = {
+  "--accent": theme.accent,
+  "--primary": theme.accent,
+  "--foreground": theme.textColor,
+  "--background": theme.background,
+  "--profile-radius": `${radius}px`,
+  "--widget-surface": `color-mix(in srgb, ${theme.background} 88%, white)`,
+  "--widget-text": theme.textColor,
+  "--widget-muted": `color-mix(in srgb, ${theme.textColor} 65%, white)`,
+} as CSSProperties;
+  
   const identityStyle = {
     borderRadius: `${radius}px`,
   };
@@ -226,7 +231,11 @@ export default function PublicProfilePage() {
         </a>
       </header>
 
-      <section className="workspace">
+     <section
+  className={`workspace ${
+    theme.layout === "widgets-left" ? "profile-layout-widgets-left" : "profile-layout-profile-left"
+  }`}
+>
         <aside className="identity-panel" style={identityStyle}>
           <div
             className="wallpaper-art"
