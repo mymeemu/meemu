@@ -841,14 +841,64 @@ export default function EditorPage() {
                 </button>
               </div>
 
-              <div className="me-editor-wallpaper-note">
+                         <div className="me-editor-wallpaper-note">
                 <ImageIcon size={18} />
 
                 <div>
                   <strong>Wallpaper personalizado</strong>
-                  <p>O posicionamento já pode ser configurado. O envio de uma imagem de fundo será adicionado numa próxima etapa.</p>
+                  <p>Envia uma imagem do teu dispositivo para personalizar o teu espaço.</p>
                 </div>
               </div>
+
+              {wallpaperImage && (
+                <div className="me-editor-wallpaper-preview">
+                  <img
+                    src={wallpaperImage}
+                    alt="Prévia do wallpaper"
+                    style={{
+                      width: "100%",
+                      maxHeight: 220,
+                      objectFit: "cover",
+                      borderRadius: 14,
+                    }}
+                  />
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setWallpaperImage("");
+                      setPendingWallpaperFile(null);
+                      setStoredWallpaperUrl(null);
+                      setSaved(false);
+                      setStatusMessage("Wallpaper removido. Guarda as alterações para confirmar.");
+                    }}
+                  >
+                    <Trash2 size={16} />
+                    Remover wallpaper
+                  </button>
+                </div>
+              )}
+
+              <label
+                className="me-editor-upload-button"
+                style={{ marginTop: 12 }}
+              >
+                <Upload size={14} />
+                {wallpaperImage ? "Escolher outra imagem" : "Escolher wallpaper"}
+
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp,image/gif"
+                  onChange={(event) => {
+                    uploadWallpaper(event.target.files?.[0]);
+                    event.currentTarget.value = "";
+                  }}
+                />
+              </label>
+
+              <small style={{ display: "block", marginTop: 9 }}>
+                JPG, PNG, WebP ou GIF · Máximo de 5 MB
+              </small>
             </div>
           )}
 
