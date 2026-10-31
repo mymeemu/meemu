@@ -1936,3 +1936,65 @@ textarea:focus-visible {
     padding: 25px 18px;
   }
 }
+/* ==========================================
+   MEEMU — PERSONALIZAÇÃO DOS WIDGETS
+========================================== */
+
+.site-shell .widget {
+  background: var(--widget-surface, #ffffff);
+  color: var(--widget-text, var(--foreground));
+  border-color: color-mix(in srgb, var(--accent) 20%, transparent);
+}
+
+.site-shell .widget-label {
+  color: var(--widget-muted, #8588a1);
+}
+
+.site-shell .widget-label svg {
+  color: var(--accent);
+}
+
+.site-shell .widget-index {
+  color: var(--widget-muted, #aaaec1);
+}
+
+.site-shell .track-info h3,
+.site-shell .quote-widget > p {
+  color: var(--widget-text, var(--foreground));
+}
+
+.site-shell .track-info > p,
+.site-shell .public-widget-empty,
+.site-shell .public-gallery-empty p,
+.site-shell .public-quote-empty p {
+  color: var(--widget-muted, var(--muted));
+}
+
+.site-shell .social-grid a {
+  background: color-mix(in srgb, var(--widget-surface) 80%, white);
+  border-color: color-mix(in srgb, var(--accent) 18%, transparent);
+  color: var(--widget-text);
+}
+
+.site-shell .social-grid a:hover {
+  background: color-mix(in srgb, var(--accent) 12%, var(--widget-surface));
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.site-shell .public-gallery-empty {
+  background: color-mix(in srgb, var(--accent) 6%, var(--widget-surface));
+  border-color: color-mix(in srgb, var(--accent) 35%, transparent);
+  color: var(--accent);
+}
+
+.site-shell .public-quote-empty {
+  color: var(--accent);
+}
+
+.site-shell .music-widget,
+.site-shell .socials-widget,
+.site-shell .gallery-widget,
+.site-shell .quote-widget {
+  background: var(--widget-surface);
+}
