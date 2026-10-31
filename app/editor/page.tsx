@@ -118,6 +118,7 @@ export default function EditorPage() {
           setAvatar(profile.avatar_url || "");
           setStoredAvatarUrl(profile.avatar_url || null);
           setStoredWallpaperUrl(profile.wallpaper_url || null);
+          setWallpaperImage(profile.wallpaper_url || "");
           setWallpaper(profile.wallpaper_mode === "full" ? "full" : "left");
           setBackground(typeof theme.background === "string" ? theme.background : "#F5F3FF");
           setAccent(typeof theme.accent === "string" ? theme.accent : "#7C3AED");
@@ -227,6 +228,7 @@ export default function EditorPage() {
     setSaved(false);
   }
 
+ 
   async function saveProfile() {
     if (!supabase) {
       setStatusMessage("Não foi possível ligar ao Supabase. Verifica as variáveis de ambiente.");
@@ -240,7 +242,6 @@ export default function EditorPage() {
     setStatusError(false);
 
     try {
-      // Confirma a sessão atual antes de enviar qualquer arquivo.
       const { data: authData, error: authError } = await supabase.auth.getUser();
 
       if (authError) throw authError;
@@ -252,24 +253,25 @@ export default function EditorPage() {
       }
 
       let avatarUrlToSave = storedAvatarUrl;
+      let wallpaperUrlToSave = storedWallpaperUrl;
 
-      // O arquivo selecionado no dispositivo só é enviado ao clicar em Guardar.
+      const allowedTypes = [
+        "image/jpeg",
+        "image/png",
+        "image/webp",
+        "image/gif",
+      ];
+
+      // Enviar foto de perfil, se houver uma nova imagem selecionada.
       if (pendingAvatarFile) {
         const file = pendingAvatarFile;
 
-        const allowedTypes = [
-          "image/jpeg",
-          "image/png",
-          "image/webp",
-          "image/gif",
-        ];
-
         if (!allowedTypes.includes(file.type)) {
-          throw new Error("Formato inválido. Usa JPG, PNG, WebP ou GIF.");
+          throw new Error("Formato inválido para o avatar. Usa JPG, PNG, WebP ou GIF.");
         }
 
         if (file.size > 5 * 1024 * 1024) {
-          throw new Error("A imagem deve ter no máximo 5 MB.");
+          throw new Error("A foto de perfil deve ter no máximo 5 MB.");
         }
 
         const extension = file.type === "image/jpeg"
@@ -295,13 +297,48 @@ export default function EditorPage() {
         avatarUrlToSave = publicUrlData.publicUrl;
       }
 
+      // Enviar wallpaper, se houver uma nova imagem selecionada.
+      if (pendingWallpaperFile) {
+        const file = pendingWallpaperFile;
+
+        if (!allowedTypes.includes(file.type)) {
+          throw new Error("Formato inválido para o wallpaper. Usa JPG, PNG, WebP ou GIF.");
+        }
+
+        if (file.size > 5 * 1024 * 1024) {
+          throw new Error("O wallpaper deve ter no máximo 5 MB.");
+        }
+
+        const extension = file.type === "image/jpeg"
+          ? "jpg"
+          : file.type.split("/")[1];
+
+        const filePath = `${user.id}/wallpaper-${Date.now()}.${extension}`;
+
+        const { error: uploadError } = await supabase.storage
+          .from("meemu-media")
+          .upload(filePath, file, {
+            cacheControl: "3600",
+            contentType: file.type,
+            upsert: false,
+          });
+
+        if (uploadError) throw uploadError;
+
+        const { data: publicUrlData } = supabase.storage
+          .from("meemu-media")
+          .getPublicUrl(filePath);
+
+        wallpaperUrlToSave = publicUrlData.publicUrl;
+      }
+
       const payload = {
         id: user.id,
         username: username.trim() || null,
         display_name: name.trim() || "Teu nome",
         bio: bio.trim(),
         avatar_url: avatarUrlToSave,
-        wallpaper_url: storedWallpaperUrl,
+        wallpaper_url: wallpaperUrlToSave,
         wallpaper_mode: wallpaper,
         theme: { title, background, accent, textColor, radius },
         widgets,
@@ -319,8 +356,13 @@ export default function EditorPage() {
       setStoredAvatarUrl(avatarUrlToSave);
       setAvatar(avatarUrlToSave || "");
       setPendingAvatarFile(null);
+
+      setStoredWallpaperUrl(wallpaperUrlToSave);
+      setWallpaperImage(wallpaperUrlToSave || "");
+      setPendingWallpaperFile(null);
+
       setSaved(true);
-      setStatusMessage("Perfil e foto guardados com sucesso!");
+      setStatusMessage("Perfil, foto e wallpaper guardados com sucesso!");
       setStatusError(false);
 
     } catch (error) {
