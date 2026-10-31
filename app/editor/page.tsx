@@ -70,6 +70,8 @@ export default function EditorPage() {
   const [storedAvatarUrl, setStoredAvatarUrl] = useState<string | null>(null);
   const [pendingAvatarFile, setPendingAvatarFile] = useState<File | null>(null);
   const [storedWallpaperUrl, setStoredWallpaperUrl] = useState<string | null>(null);
+  const [wallpaperImage, setWallpaperImage] = useState("");
+  const [pendingWallpaperFile, setPendingWallpaperFile] = useState<File | null>(null);
 
   useEffect(() => {
     let cancelled = false;
